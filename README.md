@@ -1,104 +1,201 @@
 
-  <h4 align="center"><b>
+ 
+
+<a href="https://github.com/Athexhacker/ANDRO-EYE"><img src="logo.png" alt="0" border="0" /></a> 
+
+
+# ANDRO-EYE - Android Security Testing Toolkit
+
+![GEO-PHONE](https://img.shields.io/badge/version-2.32-brightgreen)
+![GEO-PHONE](https://img.shields.io/badge/license-Educational-blue)
+![GEO-PHONE](https://img.shields.io/badge/language-Bash-orange)
+![GEO-PHONE](https://img.shields.io/badge/platform-Linux-lightgrey)
+
+ <h4 align="center"><b>
   Tool for testing your Android device and HaHaHack someone Android Phone ( Don't use with wrong intentions ) 🤘🤘 
   </b></h4>
   </p>
 
-**ANDRO-EYE  Toolkit is a BASH Script with 25+ options and an METASPLOIT Section which has 5+ options which is made to do easy penetration testing in Android Device.**
-You can do preety much any thing with this script and test your android device is it safe or not. This script is made with the help of ADB (Android Debug Bridge) it's an tool which is used for the developers for debugging the android device but as we know every thing has it's two side a good and a bad and i'm not telling you to do bad things but be don't do illegal things 😂😂.
+# ⚠️ DISCLAIMER
+FOR EDUCATIONAL PURPOSES ONLY - This tool is designed for security professionals, researchers, and educators to test Android devices in controlled environments. Unauthorized use against devices you don't own or don't have permission to test is illegal. The developers assume no liability and are not responsible for any misuse or damage caused by this program.
 
-Note : I'm not responsible for any thing you do to anyone with this tool this does not come under my responsibilty.
+# 📋 Table of Contents
+Overview
+Features
+Installation
+Requirements
+Usage
+Module Documentation
+Screenshots
+Contributing
+License
+Author
 
-**METASPLOIT SECTION :- 😎**This section consists of scripts which are related to metasploit payload and you can create an payload and install it and launch it without even touching the phone and you know the power of Metasploit.
+# 🔍 Overview
+ANDRO-EYE is a comprehensive Bash-based Android security testing toolkit that provides over 29 different functions to interact with Android devices via ADB (Android Debug Bridge). It features beautiful animations, color-coded output, and user-friendly interfaces for various Android testing and analysis tasks.
 
-## Changelogs
+**✨ Features**
+🎨 Visual Enhancements
+Color-coded output - Easy-to-read colored terminal output
 
-### Changelog v2.32
+Loading animations - Spinners, progress bars, and visual feedback
+
+Device information boxes - Beautifully formatted device displays
+
+Sparkle effects - Visual transitions and success indicators
+
+Countdown timers - For destructive operations
+
+**🛠️ Core Functionality**
+29+ modules - Comprehensive Android device interaction
+
+Multi-device support - Handle up to 3 devices simultaneously
+
+Error handling - Robust error checking and user feedback
+
+Input validation - Validates all user inputs
+
+Progress tracking - Real-time operation progress
+
+**🔧 Technical Features**
+Modular design - Each function in separate script
+
+Consistent color scheme - Standardized across all modules
+
+Cross-platform - Works on Linux and macOS
+
+Self-contained - Minimal dependencies
+
+Update checker - Automatic version verification
+
+# 📦 Installation
+Quick Install
+bash
+```
+git clone https://github.com/Athexblackhat/ANDRO-EYE.git
+cd ANDRO-EYE
+sudo bash install.sh
 
 ```
-Added vesion checking code
-Really big bug fixes
-Wiki in made
+Manual Installation
+bash
+# Install dependencies
+# For Debian/Ubuntu
 ```
-
-### Changelog V2.3
-
+sudo apt-get install adb fastboot ruby-full
 ```
-Added multi device support, now 3
-Added support to Arch, Fedora, Centos
-Added option to restart the ADB server or not in the beginning of the script
-Added Option to clear screen when a specfic option is done executing
-Fix the Exit option (Not Working)
-Simplified the Remote connection establishment
-Fix 100's of Bugs
-Specified the directories for pulling the data
-Make the script executable from any where in shell (Fixed)
+# For Arch
 ```
-
-### Changelog V2.1
-
+sudo pacman -S android-tools ruby metasploit
 ```
-Added Metasploit Section
-
-Added option to restart the ADB server or not in the beginning of the script
-
-Added 7 more options :-
-1. COPY ALL DEVICE STORAGE
-2. COPY A SPECIFIED FILE OR FOLDER
-3. PUT A FILE IN VICTIMS DEVICE
-4. LAUNCH AN APPLICATION
-5. CHECK IS PHONE ROOTED OR NOT
-6. HANG THE PHONE ( Rooted Phone )
-7. SEND SMS FROM THE PHONE
-
-Fixed the Remote connection not establishing
-Make the script executable from any where in shell
+# For CentOS/RHEL
 ```
-
-## Prerequisite
-
-Before using this tool you must enable Usb-Debugging from the devloper settings from the Android setting and then you are good to go.
-
+sudo yum install android-tools ruby
 ```
-1. Go to settings
-2. Go to About device/tablet
-3. Tap Build Number 7 times
-4. Developer options will occur
-5. Go to Developer options
-6. Search for Usb Debugging & Install via USB
-7. Turn those settings on
+# Clone and setup
 ```
-
-## Installation
-
-Guys i suggest please reinstall the toolkit or git pull it for every new releases
-
-```console
-foo@bar:~$ git clone https://github.com/Athexhacker/ANDRO-EYE.git
-
-foo@bar:~$ cd ANDRO-EYE
-
-foo@bar:~$ sudo chmod +x install.sh
-
-foo@bar:~$ sudo ./install.sh -i
+git clone https://github.com/Athexblackhat/ANDRO-EYE.git
+cd ANDRO-EYE
+chmod +x ANDRO-EYE.sh
+mkdir .temp
 ```
+# Optional: Add alias
+echo "alias ANDRO-EYE='cd $PWD && sudo bash ANDRO-EYE.sh'" >> ~/.bash_aliases
+source ~/.bash_aliases
+**🔧 Requirements**
+System Requirements
+OS: Linux (Ubuntu/Debian, Arch, CentOS, Fedora) or macOS
 
-## Usage
+Bash: Version 4.0 or higher
 
-```console
-foo@bar:~$ sudo ./ANDRO-EYE.sh
+ADB: Android Debug Bridge
 
-"or you can do"
+Fastboot: Fastboot tools
 
-foo@bar:~$ sudo bash ANDRO-EYE.sh
-```
+Ruby: For Metasploit integration (optional)
+
+Root access: For installation
+
+Android Device Requirements
+USB Debugging enabled
+
+Device authorized for ADB
+
+Android 4.0+
+
+USB drivers installed (Windows)
+
+***🚀 Usage***
+Basic Usage
+bash
+**Run with sudo**
+sudo ./ANDRO-EYE.sh
+
+**Or if alias installed**
+sudo ANDRO-EYE
+Command Line Options
+bash
+sudo bash ANDRO-EYE.sh [option]
+
+Options:
+  install, -i, -install    Install ANDRO-EYE and dependencies
+  help, -h, --help        Show help message
+Main Menu Navigation
+The tool presents a numbered menu with 29 options. Simply enter the number of the desired function.
+
+**🎯 Use Cases**
+Security Research
+Test device security configurations
+
+Analyze app permissions and behaviors
+
+Practice penetration testing techniques
+
+Digital Forensics
+Extract device information
+
+Capture screenshots and recordings
+
+Copy user data for analysis
+
+Development & Testing
+Test apps on multiple devices
+
+Debug with logcat viewer
+
+Install/uninstall apps remotely
+
+Education
+Learn Android internals
+
+Understand ADB commands
+
+Practice ethical hacking
 
 
-## Contributing
+Free for educational use
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+Not for commercial purposes
+
+No warranty provided
+
+Author not liable for misuse
+
+👤 Author
+           *ATHEX BLACK HAT*
+
+Instagram: @itx_athex86
+
+GitHub: @Athexblackhat
+
+Telegram: @athex_community
 
 
-## Author
+**📚 Additional Resources**
+ADB Documentation
 
-- **ATHEX H4CK3R** 
+Metasploit Unleashed
+
+Android Security Overview
+
+## Remember: With great power comes great responsibility. Use this tool ethically! 🔒
