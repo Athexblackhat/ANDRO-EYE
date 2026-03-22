@@ -1,0 +1,477 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 28: HANG THE PHONE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+countdown_timer() {
+    local seconds=$1
+    local message=$2
+    
+    echo -ne "${YELLOW}${BOLD}$message ${NC}"
+    for i in $(seq $seconds -1 1); do
+        echo -ne "${RED}${BOLD}$i ${NC}"
+        sleep 1
+    done
+    echo -e "${GREEN}${BOLD}GO!${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to hang the device
+hang_device() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}💥 Hanging device:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${RED}● Target${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # WARNING - This is a destructive action
+    echo -e "\n${RED}${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}${BOLD}║                     ⚠️  WARNING ⚠️                          ║${NC}"
+    echo -e "${RED}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${RED}${BOLD}║${NC}  ${WHITE}This action will HANG the device!                      ${RED}${BOLD}║${NC}"
+    echo -e "${RED}${BOLD}║${NC}  ${WHITE}The device may become:                                 ${RED}${BOLD}║${NC}"
+    echo -e "${RED}${BOLD}║${NC}  ${WHITE}• Completely unresponsive                              ${RED}${BOLD}║${NC}"
+    echo -e "${RED}${BOLD}║${NC}  ${WHITE}• Require a forced restart                            ${RED}${BOLD}║${NC}"
+    echo -e "${RED}${BOLD}║${NC}  ${WHITE}• Lose unsaved data                                   ${RED}${BOLD}║${NC}"
+    echo -e "${RED}${BOLD}║${NC}  ${WHITE}• Show a black screen                                 ${RED}${BOLD}║${NC}"
+    echo -e "${RED}${BOLD}║${NC}  ${WHITE}• Freeze completely                                   ${RED}${BOLD}║${NC}"
+    echo -e "${RED}${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
+    
+    # Triple confirmation
+    echo -e "\n${YELLOW}${BOLD}⚠️  This is a destructive action!${NC}"
+    
+    echo -ne "\n${RED}${BOLD}❓ Are you ABSOLUTELY SURE? ${WHITE}(yes/NO) ${RED}➤ ${YELLOW}"
+    read confirm1
+    echo -ne "${NC}"
+    
+    case ${confirm1,,} in
+        "yes")
+            echo -ne "\n${RED}${BOLD}❓ REALLY? This will hang the device! ${WHITE}(YES/no) ${RED}➤ ${YELLOW}"
+            read confirm2
+            echo -ne "${NC}"
+            
+            case ${confirm2,,} in
+                "yes"|"y")
+                    echo -ne "\n${RED}${BOLD}❓ FINAL WARNING! Proceed? ${WHITE}(HANG/no) ${RED}➤ ${YELLOW}"
+                    read confirm3
+                    echo -ne "${NC}"
+                    
+                    case ${confirm3,,} in
+                        "hang")
+                            echo -e "\n${RED}${BOLD}⚠️  Executing hang command...${NC}"
+                            ;;
+                        *)
+                            echo -e "\n${GREEN}${BOLD}✅ Operation cancelled. Device is safe.${NC}"
+                            return 0
+                            ;;
+                    esac
+                    ;;
+                *)
+                    echo -e "\n${GREEN}${BOLD}✅ Operation cancelled. Device is safe.${NC}"
+                    return 0
+                    ;;
+            esac
+            ;;
+        *)
+            echo -e "\n${GREEN}${BOLD}✅ Operation cancelled. Device is safe.${NC}"
+            return 0
+            ;;
+    esac
+    
+    # Final countdown
+    echo -e "\n${YELLOW}${BOLD}⏰ Final countdown...${NC}"
+    countdown_timer 5 "Hanging device in"
+    
+    # Execute hang command
+    echo -e "\n${RED}${BOLD}💥 HANGING DEVICE...${NC}\n"
+    
+    # Animated execution
+    local spin='-\|/'
+    for i in {1..20}; do
+        printf "\r${RED}${BOLD}💀 Executing hang command ${spin:$((i%4)):1} ${NC}"
+        
+        # Send hang command (in background)
+        if [ $i -eq 1 ]; then
+            adb -s "$device" shell am hang > /dev/null 2>&1 &
+            local hang_pid=$!
+        fi
+        
+        sleep 0.2
+    done
+    
+    # Check if command is still running
+    if kill -0 $hang_pid 2>/dev/null; then
+        echo -e "\r${YELLOW}${BOLD}⚠️  Hang command sent, device should be freezing...${NC}"
+    else
+        wait $hang_pid 2>/dev/null
+        echo -e "\r${RED}${BOLD}💀 Hang command executed${NC}"
+    fi
+    
+    echo -e "\n\n${RED}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${RED}${BOLD}💀 DEVICE SHOULD BE HANGING NOW${NC}"
+    echo -e "${RED}${BOLD}════════════════════════════════════════════════${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}📋 What to expect:${NC}"
+    echo -e "  ${WHITE}• Screen may freeze or go black${NC}"
+    echo -e "  ${WHITE}• Device will become unresponsive${NC}"
+    echo -e "  ${WHITE}• May need force restart (Power + Volume Down)${NC}"
+    echo -e "  ${WHITE}• Some data may be lost${NC}"
+    
+    # Ask if device recovered
+    echo -e "\n${CYAN}${BOLD}💡 Recovery options:${NC}"
+    echo -e "  ${GREEN}1.${NC} ${WHITE}Force restart (Power + Volume Down for 10s)${NC}"
+    echo -e "  ${GREEN}2.${NC} ${WHITE}Wait for automatic recovery (may take minutes)${NC}"
+    echo -e "  ${GREEN}3.${NC} ${WHITE}Check device status now${NC}"
+    
+    echo -ne "\n${YELLOW}${BOLD}❓ Select option (1-3) ${WHITE}➤${NC} ${RED}"
+    read recovery_opt
+    echo -ne "${NC}"
+    
+    case $recovery_opt in
+        1)
+            echo -e "\n${BLUE}${BOLD}ℹ️  Press and hold Power + Volume Down for 10 seconds${NC}"
+            echo -e "${YELLOW}${BOLD}The device should vibrate and restart${NC}"
+            ;;
+        2)
+            echo -e "\n${BLUE}${BOLD}⏳ Waiting 30 seconds for possible recovery...${NC}"
+            progress_bar 30 "Recovery countdown"
+            
+            # Check if device is back
+            echo -e "\n${BLUE}${BOLD}🔍 Checking device status...${NC}"
+            if adb -s "$device" get-state &>/dev/null; then
+                echo -e "${GREEN}${BOLD}✓ Device appears to be responding${NC}"
+            else
+                echo -e "${YELLOW}${BOLD}⚠️  Device not responding - needs manual restart${NC}"
+            fi
+            ;;
+        3)
+            echo -e "\n${BLUE}${BOLD}🔍 Checking device status...${NC}"
+            if adb -s "$device" get-state &>/dev/null; then
+                echo -e "${GREEN}${BOLD}✓ Device is still responding (hang might have failed)${NC}"
+            else
+                echo -e "${RED}${BOLD}❌ Device is not responding${NC}"
+            fi
+            ;;
+    esac
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${RED}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██╗  ██╗ █████╗ ███╗   ██╗ ██████╗     ██╗████████╗    ║
+    ║  ██║  ██║██╔══██╗████╗  ██║██╔════╝     ██║╚══██╔══╝    ║
+    ║  ███████║███████║██╔██╗ ██║██║  ███╗    ██║   ██║       ║
+    ║  ██╔══██║██╔══██║██║╚██╗██║██║   ██║    ██║   ██║       ║
+    ║  ██║  ██║██║  ██║██║ ╚████║╚██████╔╝    ██║   ██║       ║
+    ║  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝ ╚═════╝     ╚═╝   ╚═╝       ║
+    ║                                                          ║
+    ║        💀 ${YELLOW}DEVICE HANGER${RED} - ${CYAN}Educational Purpose Only${RED}            ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to hang${NC}                    ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Device hang functions
+dev_1_hang() {
+    hang_device "$dev_1" "${mod_1:-Unknown}" "1"
+}
+
+dev_2_hang() {
+    hang_device "$dev_2" "${mod_2:-Unknown}" "2"
+}
+
+dev_3_hang() {
+    hang_device "$dev_3" "${mod_3:-Unknown}" "3"
+}
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+echo -e "${RED}${BOLD}⚠️  WARNING: This tool is for EDUCATIONAL PURPOSES ONLY${NC}"
+echo -e "${RED}${BOLD}⚠️  Hanging a device may cause data loss${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${RED}● Target${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select this device to hang?${NC}"
+        echo -ne "\n${YELLOW}${BOLD}Proceed? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read proceed
+        echo -ne "${NC}"
+        
+        case ${proceed,,} in
+            y|yes)
+                dev_1_hang
+                ;;
+            *)
+                echo -e "\n${GREEN}${BOLD}✅ Operation cancelled${NC}"
+                ;;
+        esac
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${RED}● Target${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${RED}● Target${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to hang:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_hang
+                    break
+                    ;;
+                2)
+                    dev_2_hang
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${RED}● Target${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${RED}● Target${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${RED}● Target${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to hang:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_hang
+                    break
+                    ;;
+                2)
+                    dev_2_hang
+                    break
+                    ;;
+                3)
+                    dev_3_hang
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'hang'${NC} to hang another device"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "hang")
+        echo -e "\n${PURPLE}${BOLD}🔄 Prepare to hang another device...${NC}"
+        sleep 1
+        clear
+        bash modules/opt28
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

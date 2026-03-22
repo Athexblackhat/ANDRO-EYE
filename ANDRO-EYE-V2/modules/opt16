@@ -1,0 +1,539 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 16: ESTABLISH REMOTE CONNECTION - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to get local IP addresses
+show_local_ips() {
+    echo -e "\n${CYAN}${BOLD}🌐 Local Network Interfaces:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    
+    # Get all local IPs
+    if command -v ip &>/dev/null; then
+        ip -4 addr show | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | while read ip; do
+            if [[ ! "$ip" == 127.* ]]; then
+                echo -e "  ${GREEN}•${NC} ${WHITE}$ip${NC}"
+            fi
+        done
+    elif command -v ifconfig &>/dev/null; then
+        ifconfig | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | grep -v '127.0.0.1' | while read ip; do
+            echo -e "  ${GREEN}•${NC} ${WHITE}$ip${NC}"
+        done
+    else
+        echo -e "  ${YELLOW}Could not detect local IPs${NC}"
+    fi
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+}
+
+# Function to find device IP
+ip_finder() {
+    local device=$1
+    
+    # Try different methods to get IP
+    local dev_ip=""
+    
+    # Method 1: wlan0
+    dev_ip=$(adb -s "$device" shell ip addr show wlan0 2>/dev/null | grep "inet\s" | awk '{print $2}' | awk -F'/' '{print $1}')
+    
+    # Method 2: eth0
+    if [ -z "$dev_ip" ]; then
+        dev_ip=$(adb -s "$device" shell ip addr show eth0 2>/dev/null | grep "inet\s" | awk '{print $2}' | awk -F'/' '{print $1}')
+    fi
+    
+    # Method 3: getprop
+    if [ -z "$dev_ip" ]; then
+        dev_ip=$(adb -s "$device" shell getprop dhcp.wlan0.ipaddress 2>/dev/null)
+    fi
+    
+    # Method 4: ifconfig
+    if [ -z "$dev_ip" ]; then
+        dev_ip=$(adb -s "$device" shell ifconfig wlan0 2>/dev/null | grep "inet addr" | awk -F':' '{print $2}' | awk '{print $1}')
+    fi
+    
+    echo "$dev_ip"
+}
+
+# Function to test connectivity
+test_connectivity() {
+    local ip=$1
+    
+    if ping -c 1 -W 2 "$ip" &>/dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function for remote shell
+remote_shell() {
+    local device=$1
+    local model=$2
+    local ip=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${BOLD}🔌 Remote connection established to ${WHITE}$model${NC}"
+    echo -e "${GREEN}${BOLD}📡 IP Address: ${WHITE}$ip${NC}"
+    echo -e "${YELLOW}${BOLD}════════════════════════════════════════════════${NC}\n"
+    
+    while true; do
+        echo -ne "\n${CYAN}${BOLD}❓ Launch remote shell? ${WHITE}(Y/n) ${CYAN}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "\n${BLUE}${BOLD}⏩ Skipping shell${NC}"
+                break
+                ;;
+            *)
+                echo -e "\n${PURPLE}${BOLD}🚀 Opening remote shell to ${WHITE}$model${NC}"
+                echo -e "${YELLOW}${BOLD}Type 'exit' to return${NC}\n"
+                sleep 1
+                
+                # Connect to the remote device
+                adb connect "$ip:5555" > /dev/null 2>&1
+                
+                if [ $? -eq 0 ]; then
+                    # Open shell
+                    adb -s "$ip:5555" shell
+                    
+                    # Disconnect after shell closes
+                    echo -e "\n${BLUE}${BOLD}🔌 Disconnecting remote session...${NC}"
+                    adb disconnect "$ip:5555" > /dev/null 2>&1
+                else
+                    echo -e "${RED}${BOLD}❌ Failed to connect to remote device${NC}"
+                fi
+                break
+                ;;
+        esac
+    done
+}
+
+# Function to establish remote connection
+establish_remote() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}🌐 Establishing remote connection for:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}● Processing${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying USB connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding via USB!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ USB connection active${NC}"
+    
+    # Show local IPs for reference
+    show_local_ips
+    
+    # Get device IP
+    echo -e "\n${CYAN}${BOLD}🔎 Detecting device IP address...${NC}"
+    loading_animation "Scanning network"
+    
+    local dev_ip=$(ip_finder "$device")
+    
+    if [ -z "$dev_ip" ]; then
+        echo -e "\n${RED}${BOLD}❌ Could not detect device IP address${NC}"
+        echo -e "${YELLOW}${BOLD}Please ensure:${NC}"
+        echo -e "  ${WHITE}• Device is connected to WiFi${NC}"
+        echo -e "  ${WHITE}• WiFi is enabled on device${NC}"
+        echo -e "  ${WHITE}• Device and PC are on same network${NC}"
+        return 1
+    fi
+    
+    echo -e "\n${GREEN}${BOLD}✅ Device IP: ${WHITE}$dev_ip${NC}"
+    
+    # Test connectivity
+    echo -e "\n${BLUE}${BOLD}📡 Testing network connectivity...${NC}"
+    if test_connectivity "$dev_ip"; then
+        echo -e "${GREEN}${BOLD}✓ Device is reachable on the network${NC}"
+    else
+        echo -e "${YELLOW}${BOLD}⚠️  Device is not responding to ping${NC}"
+        echo -e "${WHITE}This may be normal if ICMP is blocked${NC}"
+    fi
+    
+    # Instructions
+    echo -e "\n${CYAN}${BOLD}📋 Remote Connection Process:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}1.${NC} Switching device to TCP/IP mode (port 5555)"
+    echo -e "  ${GREEN}2.${NC} Connecting to ${WHITE}$dev_ip:5555${NC}"
+    echo -e "  ${GREEN}3.${NC} Establishing remote session"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    
+    # Confirm
+    echo -ne "${YELLOW}${BOLD}❓ Proceed with remote connection? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+    read confirm
+    echo -ne "${NC}"
+    
+    case ${confirm,,} in
+        n|no)
+            echo -e "\n${BLUE}${BOLD}⏩ Remote connection cancelled${NC}"
+            return 0
+            ;;
+    esac
+    
+    # Switch to TCP/IP mode
+    echo -e "\n${PURPLE}${BOLD}🔄 Switching device to TCP/IP mode...${NC}"
+    progress_bar 3 "Configuring"
+    
+    local tcpip_result=$(adb -s "$device" tcpip 5555 2>&1)
+    
+    if [ $? -ne 0 ]; then
+        echo -e "\n${RED}${BOLD}❌ Failed to switch to TCP/IP mode${NC}"
+        echo -e "${YELLOW}Error: ${WHITE}$tcpip_result${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}${BOLD}✓ Device switched to TCP/IP mode${NC}"
+    
+    # Wait for device to reconfigure
+    echo -e "\n${BLUE}${BOLD}⏳ Waiting for device to stabilize...${NC}"
+    sleep 3
+    
+    # Connect to device
+    echo -e "\n${CYAN}${BOLD}🔌 Establishing remote connection...${NC}"
+    
+    local connect_result=$(adb connect "$dev_ip:5555" 2>&1)
+    
+    if [[ "$connect_result" == *"connected"* ]]; then
+        echo -e "\n${GREEN}${BOLD}✅ Remote connection established successfully!${NC}"
+        
+        # Show connection info
+        echo -e "\n${YELLOW}${BOLD}╔════════════════════════════════════════════╗${NC}"
+        echo -e "${YELLOW}${BOLD}║         REMOTE CONNECTION ACTIVE           ║${NC}"
+        echo -e "${YELLOW}${BOLD}╠════════════════════════════════════════════╣${NC}"
+        echo -e "${YELLOW}${BOLD}║${NC}  ${WHITE}Device:${NC}  ${GREEN}$model${NC}                               ${YELLOW}${BOLD}║${NC}"
+        echo -e "${YELLOW}${BOLD}║${NC}  ${WHITE}IP:${NC}      ${GREEN}$dev_ip${NC}                           ${YELLOW}${BOLD}║${NC}"
+        echo -e "${YELLOW}${BOLD}║${NC}  ${WHITE}Port:${NC}    ${GREEN}5555${NC}                                 ${YELLOW}${BOLD}║${NC}"
+        echo -e "${YELLOW}${BOLD}║${NC}  ${WHITE}Status:${NC}  ${GREEN}● Connected${NC}                           ${YELLOW}${BOLD}║${NC}"
+        echo -e "${YELLOW}${BOLD}╚════════════════════════════════════════════╝${NC}"
+        
+        # Ask for shell
+        remote_shell "$device" "$model" "$dev_ip"
+        
+    else
+        echo -e "\n${RED}${BOLD}❌ Remote connection failed${NC}"
+        echo -e "${YELLOW}Error: ${WHITE}$connect_result${NC}"
+        
+        # Troubleshooting tips
+        echo -e "\n${CYAN}${BOLD}💡 Troubleshooting Tips:${NC}"
+        echo -e "  ${WHITE}• Ensure both devices are on the same network${NC}"
+        echo -e "  ${WHITE}• Check if port 5555 is open${NC}"
+        echo -e "  ${WHITE}• Try disabling firewall temporarily${NC}"
+        echo -e "  ${WHITE}• Verify WiFi connection on device${NC}"
+    fi
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${BLUE}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██████╗ ███████╗███╗   ███╗ ██████╗ ████████╗███████╗    ║
+    ║  ██╔══██╗██╔════╝████╗ ████║██╔═══██╗╚══██╔══╝██╔════╝    ║
+    ║  ██████╔╝█████╗  ██╔████╔██║██║   ██║   ██║   █████╗      ║
+    ║  ██╔══██╗██╔══╝  ██║╚██╔╝██║██║   ██║   ██║   ██╔══╝      ║
+    ║  ██║  ██║███████╗██║ ╚═╝ ██║╚██████╔╝   ██║   ███████╗    ║
+    ║  ╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝    ╚═╝   ╚══════╝    ║
+    ║                                                          ║
+    ║        🌐 ${GREEN}REMOTE CONNECTION${BLUE} - ${CYAN}Wireless ADB Manager${BLUE}           ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device via USB first${NC}                ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Device remote functions
+dev_1_remo() {
+    establish_remote "$dev_1" "${mod_1:-Unknown}" "1"
+}
+
+dev_2_remo() {
+    establish_remote "$dev_2" "${mod_2:-Unknown}" "2"
+}
+
+dev_3_remo() {
+    establish_remote "$dev_3" "${mod_3:-Unknown}" "3"
+}
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+echo -e "${YELLOW}${BOLD}⚠️  Note: Device must be on the same network as this PC${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● USB Connected${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting remote connection setup...${NC}"
+        sleep 1
+        dev_1_remo
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● USB Connected${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● USB Connected${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for remote connection:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_remo
+                    break
+                    ;;
+                2)
+                    dev_2_remo
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● USB Connected${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● USB Connected${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● USB Connected${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for remote connection:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_remo
+                    break
+                    ;;
+                2)
+                    dev_2_remo
+                    break
+                    ;;
+                3)
+                    dev_3_remo
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'remote'${NC} to connect another device"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "remote")
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting remote connection...${NC}"
+        sleep 1
+        clear
+        bash modules/opt16
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        
+        # Disconnect any remote connections
+        adb disconnect > /dev/null 2>&1
+        echo -e "${GREEN}${BOLD}✓ Remote connections closed${NC}"
+        
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        
+        # Disconnect remote connections before returning
+        adb disconnect > /dev/null 2>&1
+        
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

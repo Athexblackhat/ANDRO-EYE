@@ -1,0 +1,508 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 9: DUMP MEMORY INFORMATION - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to parse and display memory summary
+display_memory_summary() {
+    local mem_data="$1"
+    
+    echo -e "\n${CYAN}${BOLD}📊 Memory Information Summary:${NC}"
+    echo -e "${BLUE}${BOLD}════════════════════════════════════════════════${NC}"
+    
+    # Total RAM
+    local total_ram=$(echo "$mem_data" | grep -i "Total RAM" | head -1)
+    if [ -n "$total_ram" ]; then
+        echo -e "  ${GREEN}●${NC} ${WHITE}${total_ram}${NC}"
+    fi
+    
+    # Free RAM
+    local free_ram=$(echo "$mem_data" | grep -i "Free RAM" | head -1)
+    if [ -n "$free_ram" ]; then
+        echo -e "  ${GREEN}●${NC} ${WHITE}${free_ram}${NC}"
+    fi
+    
+    # Used RAM
+    local used_ram=$(echo "$mem_data" | grep -i "Used RAM" | head -1)
+    if [ -n "$used_ram" ]; then
+        echo -e "  ${GREEN}●${NC} ${WHITE}${used_ram}${NC}"
+    fi
+    
+    # Memory by process type
+    echo -e "\n${YELLOW}${BOLD}📱 Memory by Category:${NC}"
+    echo "$mem_data" | grep -E "Native|Dalvik|Java|.Heap" | head -10 | while read line; do
+        if [ -n "$line" ]; then
+            echo -e "  ${PURPLE}➤${NC} ${WHITE}$line${NC}"
+        fi
+    done
+    
+    # Top memory consuming processes
+    echo -e "\n${RED}${BOLD}🔥 Top Memory Consuming Processes:${NC}"
+    echo "$mem_data" | grep -A 20 "processes:" | grep -E "^ *[0-9]" | head -5 | while read line; do
+        if [ -n "$line" ]; then
+            echo -e "  ${RED}●${NC} ${WHITE}$line${NC}"
+        fi
+    done
+    
+    echo -e "${BLUE}${BOLD}════════════════════════════════════════════════${NC}"
+}
+
+# Function to save memory dump to file
+save_memory_dump() {
+    local device=$1
+    local model=$2
+    local mem_data="$3"
+    
+    # Create dump directory if it doesn't exist
+    mkdir -p sys-dump-info 2>/dev/null
+    
+    local timestamp=$(date +"%H-%M-%S")
+    local dump_file="sys-dump-info/memory-info-${model}-${timestamp}.dump"
+    
+    # Save to file with header
+    {
+        echo "================================================"
+        echo "Android Memory Information Dump"
+        echo "Device: $model"
+        echo "Timestamp: $(date)"
+        echo "================================================"
+        echo ""
+        echo "$mem_data"
+        echo ""
+        echo "================================================"
+        echo "End of dump"
+    } > "$dump_file"
+    
+    local size=$(du -h "$dump_file" | cut -f1)
+    local lines=$(wc -l < "$dump_file")
+    
+    echo -e "\n${GREEN}${BOLD}✅ Memory dump saved:${NC}"
+    echo -e "  ${CYAN}●${NC} ${WHITE}File: ${YELLOW}$(basename "$dump_file")${NC}"
+    echo -e "  ${CYAN}●${NC} ${WHITE}Size: ${YELLOW}$size${NC}"
+    echo -e "  ${CYAN}●${NC} ${WHITE}Lines: ${YELLOW}$lines${NC}"
+    
+    # Return the filename for later use
+    echo "$dump_file"
+}
+
+# Function to dump memory info
+dump_memory_info() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}💾 Dumping Memory Information for:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}● Processing${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Get basic memory info for preview
+    echo -e "\n${CYAN}${BOLD}📡 Collecting memory statistics...${NC}\n"
+    
+    # Show progress while collecting
+    local spin='-\|/'
+    local i=0
+    
+    # Start collecting memory data in background
+    (
+        adb -s "$device" shell dumpsys meminfo
+    ) > .temp/mem_dump.tmp &
+    
+    local pid=$!
+    
+    # Show progress animation
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) % 4 ))
+        printf "\r${YELLOW}${BOLD}⏳ Reading memory data ${spin:$i:1} ${NC}"
+        sleep 0.5
+    done
+    
+    wait $pid 2>/dev/null
+    echo -e "\r${GREEN}${BOLD}✅ Memory data collected!          ${NC}\n"
+    
+    # Read the collected data
+    if [ -f ".temp/mem_dump.tmp" ] && [ -s ".temp/mem_dump.tmp" ]; then
+        local mem_data=$(cat .temp/mem_dump.tmp)
+        
+        # Display summary
+        display_memory_summary "$mem_data"
+        
+        # Ask if user wants to view full dump
+        echo -ne "\n${YELLOW}${BOLD}❓ View full memory dump? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read view_choice
+        echo -ne "${NC}"
+        
+        case ${view_choice,,} in
+            y|yes)
+                echo -e "\n${BLUE}${BOLD}📄 Opening memory dump with less pager...${NC}"
+                echo -e "${CYAN}${BOLD}Press 'q' to exit, '/' to search${NC}\n"
+                sleep 1
+                
+                # Save to temp file for viewing
+                echo "$mem_data" | less
+                
+                echo -e "\n${GREEN}${BOLD}✅ Viewer closed${NC}"
+                
+                # Ask if user wants to save the dump
+                echo -ne "\n${YELLOW}${BOLD}❓ Save this memory dump to file? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+                read save_choice
+                echo -ne "${NC}"
+                
+                case ${save_choice,,} in
+                    y|yes)
+                        save_memory_dump "$device" "$model" "$mem_data" > /dev/null
+                        ;;
+                esac
+                ;;
+            *)
+                # Auto-save without viewing
+                echo -ne "\n${YELLOW}${BOLD}❓ Save memory dump to file? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+                read save_choice
+                echo -ne "${NC}"
+                
+                case ${save_choice,,} in
+                    y|yes)
+                        save_memory_dump "$device" "$model" "$mem_data" > /dev/null
+                        ;;
+                esac
+                ;;
+        esac
+        
+        # Ask if user wants detailed process memory analysis
+        echo -ne "\n${YELLOW}${BOLD}❓ Show detailed process memory? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read process_choice
+        echo -ne "${NC}"
+        
+        case ${process_choice,,} in
+            y|yes)
+                echo -e "\n${PURPLE}${BOLD}📋 Process Memory Details:${NC}"
+                echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+                echo "$mem_data" | grep -A 50 "processes:" | head -20
+                echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+                ;;
+        esac
+        
+    else
+        echo -e "\n${RED}${BOLD}❌ Failed to collect memory data${NC}"
+    fi
+    
+    # Cleanup
+    rm -f .temp/mem_dump.tmp 2>/dev/null
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${GREEN}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ███╗   ███╗███████╗███╗   ███╗ ██████╗ ██████╗ ██╗   ██╗ ║
+    ║  ████╗ ████║██╔════╝████╗ ████║██╔═══██╗██╔══██╗╚██╗ ██╔╝ ║
+    ║  ██╔████╔██║█████╗  ██╔████╔██║██║   ██║██████╔╝ ╚████╔╝  ║
+    ║  ██║╚██╔╝██║██╔══╝  ██║╚██╔╝██║██║   ██║██╔══██╗  ╚██╔╝   ║
+    ║  ██║ ╚═╝ ██║███████╗██║ ╚═╝ ██║╚██████╔╝██║  ██║   ██║    ║
+    ║  ╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝ ╚═════╝ ╚═╝  ╚═╝   ╚═╝    ║
+    ║                                                          ║
+    ║        💾 ${PURPLE}MEMORY INFORMATION DUMP${GREEN} - ${CYAN}RAM Analyzer${GREEN}             ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp sys-dump-info 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to dump memory info${NC}           ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Function for device 1 dump
+dev_1_dump() {
+    dump_memory_info "$dev_1" "${mod_1:-Unknown}" "1"
+}
+
+# Function for device 2 dump
+dev_2_dump() {
+    dump_memory_info "$dev_2" "${mod_2:-Unknown}" "2"
+}
+
+# Function for device 3 dump
+dev_3_dump() {
+    dump_memory_info "$dev_3" "${mod_3:-Unknown}" "3"
+}
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+# Show existing memory dumps if any
+if [ -d "sys-dump-info" ] && [ "$(ls -A sys-dump-info/memory-info-* 2>/dev/null)" ]; then
+    echo -e "${CYAN}${BOLD}📁 Existing memory dumps:${NC}"
+    ls -lh sys-dump-info/memory-info-* 2>/dev/null | tail -n +1 | head -5 | while read line; do
+        echo -e "  ${GREEN}•${NC} ${WHITE}$(basename "$line")${NC}"
+    done
+    echo -e "  ${YELLOW}(Use option after dump to see all)${NC}\n"
+fi
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting memory dump automatically...${NC}"
+        sleep 1
+        dev_1_dump
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to dump memory info:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_dump
+                    break
+                    ;;
+                2)
+                    dev_2_dump
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to dump memory info:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_dump
+                    break
+                    ;;
+                2)
+                    dev_2_dump
+                    break
+                    ;;
+                3)
+                    dev_3_dump
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp .temp/mem_dump.tmp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'memory'${NC} to dump another device"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "memory")
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting memory dump selection...${NC}"
+        sleep 1
+        clear
+        bash modules/opt9
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

@@ -1,0 +1,66 @@
+#!/bin/bash
+# Written in Bash
+# Screenshot Helper Script - ANDRO-EYE
+
+# Color codes (if running standalone, but will inherit from parent)
+if [ -z "$NC" ]; then
+    RED='\033[0;91m'
+    GREEN='\033[0;92m'
+    YELLOW='\033[0;93m'
+    BLUE='\033[0;94m'
+    NC='\033[0m'
+    BOLD='\033[1m'
+fi
+
+# Get parameters
+sc_name="$1"
+device="$2"
+model="$3"
+
+# If called with just name (from old version), get device from env
+if [ -z "$device" ] && [ -n "$devv" ]; then
+    device="$devv"
+    model="$mod_1"
+fi
+
+if [ -z "$device" ]; then
+    echo -e "${RED}${BOLD}❌ No device specified${NC}"
+    exit 1
+fi
+
+# Create screenshots directory if it doesn't exist
+mkdir -p ../screenshots 2>/dev/null
+
+# Take screenshot on device
+echo -ne "${BLUE}${BOLD}📸 Capturing screen... ${NC}"
+adb -s "$device" shell screencap -p /sdcard/${sc_name}.png > /dev/null 2>&1
+
+if [ $? -eq 0 ]; then
+    echo -e "${GREEN}✓${NC}"
+    
+    # Pull screenshot to computer
+    echo -ne "${BLUE}${BOLD}📥 Downloading screenshot... ${NC}"
+    adb -s "$device" pull /sdcard/${sc_name}.png ../screenshots/ > /dev/null 2>&1
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}✓${NC}"
+        
+        # Clean up device
+        echo -ne "${BLUE}${BOLD}🧹 Cleaning up... ${NC}"
+        adb -s "$device" shell rm /sdcard/${sc_name}.png > /dev/null 2>&1
+        echo -e "${GREEN}✓${NC}"
+        
+        # Verify file exists
+        if [ -f "../screenshots/${sc_name}.png" ]; then
+            exit 0
+        else
+            exit 1
+        fi
+    else
+        echo -e "${RED}✗${NC}"
+        exit 1
+    fi
+else
+    echo -e "${RED}✗${NC}"
+    exit 1
+fi

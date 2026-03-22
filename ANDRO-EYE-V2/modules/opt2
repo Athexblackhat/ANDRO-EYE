@@ -1,0 +1,239 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 2: RESTART ADB SERVICE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for i in {1..20}; do
+        echo -ne "${GREEN}${BOLD}▓${NC}"
+        sleep $(echo "scale=2; $duration/20" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "${GREEN}${BOLD} Complete! ${NC}"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to check ADB status
+check_adb_status() {
+    if command -v adb &> /dev/null; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to count connected devices
+count_devices() {
+    local count=$(adb devices | sed -n '2,$p' | grep -v "^$" | wc -l)
+    echo $count
+}
+
+# Clear screen and show banner
+clear
+echo -e "${PURPLE}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║   █████╗ ██████╗ ██████╗     ███████╗███████╗██████╗    ║
+    ║  ██╔══██╗██╔══██╗██╔══██╗    ██╔════╝██╔════╝██╔══██╗   ║
+    ║  ███████║██████╔╝██████╔╝    ███████╗█████╗  ██████╔╝   ║
+    ║  ██╔══██║██╔══██╗██╔══██╗    ╚════██║██╔══╝  ██╔══██╗   ║
+    ║  ██║  ██║██████╔╝██████╔╝    ███████║███████╗██║  ██║   ║
+    ║  ╚═╝  ╚═╝╚═════╝ ╚═════╝     ╚══════╝╚══════╝╚═╝  ╚═╝   ║
+    ║                                                          ║
+    ║        🔄 ${GREEN}ADB SERVICE RESTART${PURPLE} - ${CYAN}Server Manager${PURPLE}             ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Check if ADB is installed
+echo -e "\n${BLUE}${BOLD}🔍 Checking ADB installation...${NC}"
+if ! check_adb_status; then
+    pulse_message "❌ ADB is not installed!" "${RED}"
+    echo -e "${YELLOW}${BOLD}Please install ADB first using the main installer${NC}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+echo -e "${GREEN}${BOLD}✓ ADB found${NC}\n"
+
+# Show current status before restart
+echo -e "${YELLOW}${BOLD}📊 Current ADB Status:${NC}"
+echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+
+# Check if ADB server is running
+if adb devices &> /dev/null; then
+    device_count=$(count_devices)
+    echo -e "${WHITE}Server status: ${GREEN}● Running${NC}"
+    echo -e "${WHITE}Devices connected: ${GREEN}$device_count${NC}"
+    
+    if [ "$device_count" -gt 0 ]; then
+        echo -e "${WHITE}Active sessions: ${YELLOW}$device_count device(s) connected${NC}"
+    fi
+else
+    echo -e "${WHITE}Server status: ${RED}○ Stopped${NC}"
+fi
+
+echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+
+# Confirmation prompt with animation
+echo -ne "${YELLOW}${BOLD}⚠️  This will restart the ADB server. Continue? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+read confirm
+echo -ne "${NC}"
+
+case ${confirm,,} in
+    n|no)
+        echo -e "\n${BLUE}${BOLD}⏩ Restart cancelled. Returning to menu...${NC}"
+        sleep 1
+        clear
+        bash modules/funtion.sh
+        exit 0
+        ;;
+    *)
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting ADB server...${NC}\n"
+        
+        # Kill server with animation
+        echo -ne "${RED}${BOLD}🔪 Killing ADB server "
+        adb kill-server > /dev/null 2>&1
+        for i in {1..10}; do
+            echo -ne "."
+            sleep 0.1
+        done
+        echo -e " ${GREEN}✓${NC}"
+        
+        # Small delay
+        sleep 0.5
+        
+        # Start server with animation
+        echo -ne "${GREEN}${BOLD}🚀 Starting new ADB server "
+        adb start-server > /dev/null 2>&1
+        for i in {1..10}; do
+            echo -ne "."
+            sleep 0.1
+        done
+        echo -e " ${GREEN}✓${NC}"
+        
+        # Show progress bar
+        echo
+        progress_bar 2 "Initializing services"
+        
+        echo -e "\n${GREEN}${BOLD}✅ ADB server restarted successfully!${NC}"
+        sparkle_effect
+        
+        # Show new status
+        echo -e "\n${YELLOW}${BOLD}📊 New ADB Status:${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        
+        new_count=$(count_devices)
+        echo -e "${WHITE}Server status: ${GREEN}● Running${NC}"
+        echo -e "${WHITE}Devices connected: ${GREEN}$new_count${NC}"
+        
+        if [ "$new_count" -gt 0 ]; then
+            echo -e "\n${CYAN}${BOLD}📱 Connected devices:${NC}"
+            adb devices | sed -n '2,$p' | grep -v "^$" | while read line; do
+                device_id=$(echo $line | awk '{print $1}')
+                echo -e "  ${GREEN}•${NC} ${WHITE}$device_id${NC}"
+            done
+        else
+            echo -e "\n${YELLOW}${BOLD}💡 No devices connected. Connect a device with USB debugging enabled.${NC}"
+        fi
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        ;;
+esac
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'restart'${NC} to restart again"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'devices'${NC} to show connected devices"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "restart")
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting ADB again...${NC}"
+        sleep 1
+        clear
+        bash modules/opt2
+        ;;
+    "devices"|"device")
+        echo -e "\n${BLUE}${BOLD}📱 Showing connected devices...${NC}"
+        sleep 1
+        clear
+        bash modules/opt1
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

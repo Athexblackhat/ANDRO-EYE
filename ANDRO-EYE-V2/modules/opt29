@@ -1,0 +1,506 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 29: SEND SMS FROM PHONE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to validate phone number
+validate_phone() {
+    local phone=$1
+    # Remove any non-digit characters
+    phone=$(echo "$phone" | tr -cd '0-9+')
+    
+    # Basic validation
+    if [[ ${#phone} -lt 10 ]]; then
+        return 1
+    fi
+    
+    # Check if it starts with + or is just digits
+    if [[ $phone =~ ^\+[0-9]{10,15}$ ]] || [[ $phone =~ ^[0-9]{10,15}$ ]]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to format phone number display
+format_phone() {
+    local phone=$1
+    if [[ $phone =~ ^\+ ]]; then
+        echo "$phone"
+    else
+        echo "+$phone"
+    fi
+}
+
+# Function to take phone number with validation
+phone_no_take() {
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}📞 Enter phone number (with country code) ${WHITE}➤${NC} ${RED}"
+        read phone_no
+        echo -ne "${NC}"
+        
+        if [ -z "$phone_no" ]; then
+            pulse_message "❌ Phone number cannot be empty!" "${RED}"
+        elif ! validate_phone "$phone_no"; then
+            pulse_message "❌ Invalid phone number! Use format: +1234567890 or 1234567890" "${RED}"
+        else
+            # Format phone number for display
+            local formatted=$(format_phone "$phone_no")
+            echo -e "${GREEN}${BOLD}✓ Valid phone number: ${WHITE}$formatted${NC}"
+            break
+        fi
+    done
+}
+
+# Function to take SMS body
+sms_body_take() {
+    echo -e "\n${CYAN}${BOLD}📝 Compose your message:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "${YELLOW}${BOLD}💡 Max 160 characters for single SMS${NC}"
+    echo -e "${YELLOW}${BOLD}💡 Longer messages will be split${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    
+    while true; do
+        echo -ne "${YELLOW}${BOLD}💬 Message ${WHITE}➤${NC} ${GREEN}"
+        read -e sms_body
+        echo -ne "${NC}"
+        
+        if [ -z "$sms_body" ]; then
+            pulse_message "❌ Message cannot be empty!" "${RED}"
+        else
+            local msg_length=${#sms_body}
+            local sms_count=$(( (msg_length + 152) / 153 ))
+            
+            echo -e "\n${CYAN}${BOLD}📊 Message stats:${NC}"
+            echo -e "  ${GREEN}•${NC} ${WHITE}Length: ${YELLOW}$msg_length characters${NC}"
+            echo -e "  ${GREEN}•${NC} ${WHITE}SMS parts: ${YELLOW}$sms_count${NC}"
+            
+            if [ $sms_count -gt 1 ]; then
+                echo -e "  ${YELLOW}⚠️  Message will be sent as $sms_count SMS messages${NC}"
+            fi
+            
+            # Show preview
+            echo -e "\n${PURPLE}${BOLD}Preview:${NC}"
+            echo -e "  ${WHITE}\"${sms_body:0:50}${sms_body:50+}\"${NC}"
+            
+            echo -ne "\n${YELLOW}${BOLD}❓ Send this message? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+            read confirm_msg
+            echo -ne "${NC}"
+            
+            case ${confirm_msg,,} in
+                n|no)
+                    echo -e "\n${BLUE}${BOLD}⏩ Edit message again${NC}"
+                    ;;
+                *)
+                    break
+                    ;;
+            esac
+        fi
+    done
+}
+
+# Function to send SMS with animation
+send_sms() {
+    local device=$1
+    local model=$2
+    local phone=$3
+    local message=$4
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}📱 Sending SMS from:${NC}"
+    display_device_box "-" "$device" "$model" "${GREEN}● Ready${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Check if device has SMS capability
+    echo -e "\n${BLUE}${BOLD}🔍 Checking SMS capability...${NC}"
+    if ! adb -s "$device" shell pm list packages | grep -q "com.android.mms"; then
+        echo -e "${YELLOW}${BOLD}⚠️  SMS app may not be available${NC}"
+    else
+        echo -e "${GREEN}${BOLD}✓ SMS app detected${NC}"
+    fi
+    
+    # Show SMS details
+    echo -e "\n${CYAN}${BOLD}📋 SMS Details:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}To: ${YELLOW}$(format_phone "$phone")${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}From device: ${YELLOW}$model${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Message: ${YELLOW}\"${message:0:50}${message:50+}\"${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    
+    # Final confirmation
+    echo -ne "\n${YELLOW}${BOLD}❓ Send SMS now? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+    read final_confirm
+    echo -ne "${NC}"
+    
+    case ${final_confirm,,} in
+        n|no)
+            echo -e "\n${BLUE}${BOLD}⏩ SMS sending cancelled${NC}"
+            return 0
+            ;;
+    esac
+    
+    # Sending animation
+    echo -e "\n${CYAN}${BOLD}📤 Sending SMS...${NC}\n"
+    
+    local spin='-\|/'
+    for i in {1..20}; do
+        printf "\r${YELLOW}${BOLD}⏳ Preparing message ${spin:$((i%4)):1} ${NC}"
+        sleep 0.1
+    done
+    
+    # Open SMS app and compose
+    printf "\r${YELLOW}${BOLD}📱 Opening messaging app...   ${NC}"
+    adb -s "$device" shell am start -a android.intent.action.SENDTO -d sms:$phone --es sms_body "$message" --ez exit_on_sent true > /dev/null 2>&1
+    sleep 1
+    
+    printf "\r${YELLOW}${BOLD}⌨️  Typing message...         ${NC}"
+    sleep 1
+    
+    # Navigate and send
+    printf "\r${YELLOW}${BOLD}➡️  Navigating to send...     ${NC}"
+    adb -s "$device" shell input keyevent 22 > /dev/null 2>&1  # Right arrow
+    sleep 0.5
+    adb -s "$device" shell input keyevent 66 > /dev/null 2>&1  # Enter
+    
+    printf "\r${GREEN}${BOLD}✅ SMS sent successfully!      ${NC}\n\n"
+    
+    # Send confirmation
+    echo -e "${GREEN}${BOLD}✓ Message sent to ${WHITE}$(format_phone "$phone")${NC}"
+    
+    # Show message preview
+    echo -e "\n${CYAN}${BOLD}📝 Sent message:${NC}"
+    echo -e "  ${WHITE}\"$message\"${NC}"
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${GREEN}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ███████╗███╗   ███╗███████╗    ███████╗███████╗███╗   ██╗██████╗ ║
+    ║  ██╔════╝████╗ ████║██╔════╝    ██╔════╝██╔════╝████╗  ██║██╔══██╗║
+    ║  ███████╗██╔████╔██║███████╗    ███████╗█████╗  ██╔██╗ ██║██║  ██║║
+    ║  ╚════██║██║╚██╔╝██║╚════██║    ╚════██║██╔══╝  ██║╚██╗██║██║  ██║║
+    ║  ███████║██║ ╚═╝ ██║███████║    ███████║███████╗██║ ╚████║██████╔╝║
+    ║  ╚══════╝╚═╝     ╚═╝╚══════╝    ╚══════╝╚══════╝╚═╝  ╚═══╝╚═════╝ ║
+    ║                                                          ║
+    ║        💬 ${PURPLE}SMS SENDER${GREEN} - ${CYAN}Send Messages from Device${GREEN}               ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to send SMS${NC}                  ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Device SMS functions
+dev_1_sms() {
+    local phone=""
+    local message=""
+    
+    echo -e "\n${YELLOW}${BOLD}📱 Selected device: ${WHITE}$mod_1${NC}"
+    
+    phone_no_take
+    sms_body_take
+    send_sms "$dev_1" "$mod_1" "$phone_no" "$sms_body"
+}
+
+dev_2_sms() {
+    local phone=""
+    local message=""
+    
+    echo -e "\n${YELLOW}${BOLD}📱 Selected device: ${WHITE}$mod_2${NC}"
+    
+    phone_no_take
+    sms_body_take
+    send_sms "$dev_2" "$mod_2" "$phone_no" "$sms_body"
+}
+
+dev_3_sms() {
+    local phone=""
+    local message=""
+    
+    echo -e "\n${YELLOW}${BOLD}📱 Selected device: ${WHITE}$mod_3${NC}"
+    
+    phone_no_take
+    sms_body_take
+    send_sms "$dev_3" "$mod_3" "$phone_no" "$sms_body"
+}
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+# Show note about SMS capability
+echo -e "${CYAN}${BOLD}ℹ️  Note: Device must have:${NC}"
+echo -e "  ${GREEN}•${NC} ${WHITE}Active SIM card${NC}"
+echo -e "  ${GREEN}•${NC} ${WHITE}Default SMS app configured${NC}"
+echo -e "  ${GREEN}•${NC} ${WHITE}Screen unlocked${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting SMS composer...${NC}"
+        sleep 1
+        dev_1_sms
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to send SMS:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_sms
+                    break
+                    ;;
+                2)
+                    dev_2_sms
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to send SMS:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_sms
+                    break
+                    ;;
+                2)
+                    dev_2_sms
+                    break
+                    ;;
+                3)
+                    dev_3_sms
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'sms'${NC} to send another message"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "sms")
+        echo -e "\n${PURPLE}${BOLD}🔄 Sending another message...${NC}"
+        sleep 1
+        clear
+        bash modules/opt29
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

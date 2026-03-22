@@ -1,0 +1,195 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# ABOUT AUTHOR MODULE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..10}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..20}; do
+        echo -ne "✦"
+        sleep 0.02
+    done
+    echo -e "${NC}"
+}
+
+typewriter_effect() {
+    local text=$1
+    local color=$2
+    for ((i=0; i<${#text}; i++)); do
+        echo -ne "${color}${BOLD}${text:$i:1}${NC}"
+        sleep 0.03
+    done
+    echo
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..2}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Clear screen
+clear
+
+# Display main banner
+echo -e "${PURPLE}${BOLD}"
+cat << "EOF"
+   
+       █████╗ ██████╗  ██████╗ ██╗   ██╗████████╗             
+      ██╔══██╗██╔══██╗██╔═══██╗██║   ██║╚══██╔══╝             
+      ███████║██████╔╝██║   ██║██║   ██║   ██║                
+      ██╔══██║██╔══██╗██║   ██║██║   ██║   ██║                
+      ██║  ██║██████╔╝╚██████╔╝╚██████╔╝   ██║                
+      ╚═╝  ╚═╝╚═════╝  ╚═════╝  ╚═════╝    ╚═╝                
+👤 ${GREEN}ABOUT THE AUTHOR${PURPLE} - ${CYAN}ANDRO-EYE${PURPLE}              
+    
+EOF
+echo -e "${NC}"
+
+# Sparkle effect
+sparkle_effect
+
+# Loading animation
+loading_animation "Loading author information"
+
+# Create a beautiful box for author info
+echo -e "\n${YELLOW}${BOLD}┌────────────────────────────────────────────────────────┐${NC}"
+echo -e "${YELLOW}${BOLD}│                    👨‍💻 AUTHOR DETAILS                      │${NC}"
+echo -e "${YELLOW}${BOLD}├────────────────────────────────────────────────────────┤${NC}"
+
+# Author Name with icon
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}┌─${NC} ${PURPLE}${BOLD}●${NC} ${CYAN}${BOLD}AUTHOR NAME${NC}        ${WHITE}:${NC}  ${RED}${BOLD}${UNDERLINE}ATHEX${NC}                                      ${YELLOW}${BOLD}│${NC}"
+
+# Tool Name with icon
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}├─${NC} ${BLUE}${BOLD}🔧${NC} ${GREEN}${BOLD}TOOL NAME${NC}          ${WHITE}:${NC}  ${RED}${BOLD}${UNDERLINE}ADB-Toolkit / ANDRO-EYE${NC}                      ${YELLOW}${BOLD}│${NC}"
+
+# Version
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}├─${NC} ${PURPLE}${BOLD}📌${NC} ${CYAN}${BOLD}VERSION${NC}            ${WHITE}:${NC}  ${GREEN}${BOLD}2.32${NC}                                         ${YELLOW}${BOLD}│${NC}"
+
+# Date with icon
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}├─${NC} ${YELLOW}${BOLD}📅${NC} ${PURPLE}${BOLD}RELEASE DATE${NC}      ${WHITE}:${NC}  ${GREEN}${BOLD}08/10/2025${NC}                                    ${YELLOW}${BOLD}│${NC}"
+
+# Instagram with icon
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}├─${NC} ${RED}${BOLD}📷${NC} ${BLUE}${BOLD}INSTAGRAM${NC}         ${WHITE}:${NC}  ${PURPLE}${BOLD}https://instagram.com/itx_athex86${NC}                ${YELLOW}${BOLD}│${NC}"
+
+# GitHub (added for completeness)
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}├─${NC} ${CYAN}${BOLD}🐙${NC} ${GREEN}${BOLD}GITHUB${NC}           ${WHITE}:${NC}  ${BLUE}${BOLD}https://github.com/Athexhacker${NC}                     ${YELLOW}${BOLD}│${NC}"
+
+# Language with icon
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}├─${NC} ${GREEN}${BOLD}💻${NC} ${YELLOW}${BOLD}LANGUAGE${NC}          ${WHITE}:${NC}  ${RED}${BOLD}BASH${NC}                                         ${YELLOW}${BOLD}│${NC}"
+
+# Purpose with icon
+echo -e "${YELLOW}${BOLD}│${NC}  ${WHITE}${BOLD}└─${NC} ${RED}${BOLD}⚠️${NC}  ${CYAN}${BOLD}PURPOSE${NC}           ${WHITE}:${NC}  ${YELLOW}${BOLD}Educational Purpose Only${NC}                         ${YELLOW}${BOLD}│${NC}"
+
+echo -e "${YELLOW}${BOLD}└────────────────────────────────────────────────────────┘${NC}\n"
+
+# Display note with special formatting
+echo -e "${RED}${BOLD}╔══════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${RED}${BOLD}║                         ⚠️  NOTE ⚠️                           ║${NC}"
+echo -e "${RED}${BOLD}╠══════════════════════════════════════════════════════════════╣${NC}"
+echo -e "${RED}${BOLD}║${NC}  ${WHITE}${BOLD}Please don't use for wrong intentions. This tool is    ${RED}${BOLD}║${NC}"
+echo -e "${RED}${BOLD}║${NC}  ${WHITE}${BOLD}created strictly for ${RED}${BOLD}EDUCATIONAL PURPOSE${WHITE}${BOLD} only.     ${RED}${BOLD}║${NC}"
+echo -e "${RED}${BOLD}║${NC}  ${WHITE}${BOLD}The author is not responsible for any misuse.         ${RED}${BOLD}║${NC}"
+echo -e "${RED}${BOLD}╚══════════════════════════════════════════════════════════════╝${NC}\n"
+
+# Additional info with animation
+echo -e "${CYAN}${BOLD}📊 STATISTICS${NC}"
+echo -e "${BLUE}${BOLD}────────────────────────────────────────────────────${NC}"
+
+# Simulate loading stats
+loading_animation "Gathering statistics"
+
+# Stats display
+echo -e "${GREEN}${BOLD}├─${NC} ${WHITE}Lines of Code     : ${YELLOW}~5000+${NC}"
+echo -e "${GREEN}${BOLD}├─${NC} ${WHITE}Modules           : ${YELLOW}35+${NC}"
+echo -e "${GREEN}${BOLD}├─${NC} ${WHITE}Release Date      : ${YELLOW}October 2025${NC}"
+echo -e "${GREEN}${BOLD}├─${NC} ${WHITE}Current Version   : ${YELLOW}2.32${NC}"
+echo -e "${GREEN}${BOLD}└─${NC} ${WHITE}Last Updated      : ${YELLOW}$(date +"%B %d, %Y")${NC}\n"
+
+# Social links in a nice format
+echo -e "${PURPLE}${BOLD}🌐 SOCIAL LINKS${NC}"
+echo -e "${CYAN}${BOLD}────────────────────────────────────────────────────${NC}"
+echo -e "${YELLOW}${BOLD}📱${NC} ${WHITE}Instagram  : ${GREEN}${BOLD}https://instagram.com/itx_athex86${NC}"
+echo -e "${YELLOW}${BOLD}💬${NC} ${WHITE}Telegram   : ${BLUE}${BOLD}https://t.me/athex_community${NC}"
+echo -e "${YELLOW}${BOLD}🐦${NC} ${WHITE}Twitter    : ${CYAN}${BOLD}https://twitter.com/athex_hacker${NC}"
+echo -e "${YELLOW}${BOLD}📧${NC} ${WHITE}Email      : ${RED}${BOLD}athex@protonmail.com${NC}\n"
+
+# Quote of the day
+echo -e "${GREEN}${BOLD}💡 QUOTE${NC}"
+echo -e "${BLUE}${BOLD}────────────────────────────────────────────────────${NC}"
+echo -e "${WHITE}\"With great power comes great responsibility. Use this${NC}"
+echo -e "${WHITE} tool wisely for learning and ethical purposes only.\"${NC}"
+echo -e "${YELLOW}${BOLD}    - ATHEX${NC}\n"
+
+# Loading animation before returning
+echo -ne "${PURPLE}${BOLD}🔄 Returning to main menu"
+for i in {1..3}; do
+    echo -ne "."
+    sleep 0.3
+done
+echo -e "${NC}\n"
+
+# Ask to continue with animation
+echo -ne "${CYAN}${BOLD}Press Enter to continue...${NC}"
+read
+
+# Clear screen and return to main menu
+clear
+
+# Check if main function script exists
+if [ -f "modules/funtion.sh" ]; then
+    # Small loading animation
+    echo -ne "${GREEN}${BOLD}Loading main menu"
+    for i in {1..3}; do
+        echo -ne "."
+        sleep 0.3
+    done
+    echo -e "${NC}"
+    sleep 0.5
+    clear
+    bash modules/funtion.sh
+else
+    echo -e "${RED}${BOLD}❌ Error: modules/funtion.sh not found!${NC}"
+    echo -e "${YELLOW}${BOLD}Please make sure you're in the correct directory${NC}"
+    exit 1
+fi

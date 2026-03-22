@@ -1,0 +1,254 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 1: SHOW CONNECTED DEVICES - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for i in {1..20}; do
+        echo -ne "${GREEN}${BOLD}▓${NC}"
+        sleep $(echo "scale=2; $duration/20" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "${GREEN}${BOLD} Complete! ${NC}"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    
+    # Truncate device ID for better display (show first 15 chars)
+    local short_device="${device:0:15}..."
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}$short_device${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} ${GREEN}● Connected${NC}                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Clear screen and show banner
+clear
+echo -e "${BLUE}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ███████╗██╗  ██╗ ██████╗ ██╗    ██╗                    ║
+    ║  ██╔════╝██║  ██║██╔═══██╗██║    ██║                    ║
+    ║  ███████╗███████║██║   ██║██║ █╗ ██║                    ║
+    ║  ╚════██║██╔══██║██║   ██║██║███╗██║                    ║
+    ║  ███████║██║  ██║╚██████╔╝╚███╔███╔╝                    ║
+    ║  ╚══════╝╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝                     ║
+    ║                                                          ║
+    ║           🔍 ${GREEN}DEVICE DETECTOR${BLUE} - ${CYAN}Connected Devices${BLUE}             ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create .temp directory if it doesn't exist
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${PURPLE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+# Start ADB server if not running
+adb start-server > /dev/null 2>&1
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device with:${NC}                    ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${WHITE}• USB Debugging enabled${NC}                         ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${WHITE}• Device authorized${NC}                              ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${WHITE}• ADB drivers installed${NC}                          ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    total_dev=0
+else
+    # Read devices into array properly
+    mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+    # Assign device variables with null checking
+    dev_1="${dev[0]:-}"
+    dev_2="${dev[1]:-}"
+    dev_3="${dev[2]:-}"
+
+    ## DEVICE MODEL EXTRACT ##
+    adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+    # Extract models properly
+    mod_1=""
+    mod_2=""
+    mod_3=""
+
+    if [ -s ".temp/dev_list_model_temp" ]; then
+        mapfile -t model_lines < .temp/dev_list_model_temp
+        
+        for i in "${!model_lines[@]}"; do
+            model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+            
+            case $i in
+                0) mod_1="$model" ;;
+                1) mod_2="$model" ;;
+                2) mod_3="$model" ;;
+            esac
+        done
+    fi
+
+    # Fix: Proper device count logic
+    total_dev=0
+    [ -n "$dev_1" ] && total_dev=1
+    [ -n "$dev_2" ] && total_dev=2
+    [ -n "$dev_3" ] && total_dev=3
+fi
+
+# Display results
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete!${NC}\n"
+
+if [ "$total_dev" -eq 0 ]; then
+    # Already displayed message above
+    echo -e "\n${YELLOW}${BOLD}💡 Tip: Run 'adb kill-server && adb start-server' if device not detected${NC}"
+else
+    echo -e "${YELLOW}${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}${BOLD}║              📱 CONNECTED DEVICES FOUND                    ║${NC}"
+    echo -e "${YELLOW}${BOLD}╚══════════════════════════════════════════════════════════╝${NC}\n"
+    
+    case $total_dev in
+        1)
+            display_device_box "1" "$dev_1" "${mod_1:-Unknown}"
+            ;;
+        2)
+            display_device_box "1" "$dev_1" "${mod_1:-Unknown}"
+            echo
+            display_device_box "2" "$dev_2" "${mod_2:-Unknown}"
+            ;;
+        3)
+            display_device_box "1" "$dev_1" "${mod_1:-Unknown}"
+            echo
+            display_device_box "2" "$dev_2" "${mod_2:-Unknown}"
+            echo
+            display_device_box "3" "$dev_3" "${mod_3:-Unknown}"
+            ;;
+    esac
+    
+    # Additional device details
+    echo -e "\n${CYAN}${BOLD}📊 DEVICE SUMMARY${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────────────────────────────${NC}"
+    echo -e "${WHITE}Total devices connected: ${GREEN}${BOLD}$total_dev${NC}"
+    
+    # Show full device IDs
+    echo -e "\n${YELLOW}${BOLD}🔑 Full Device IDs:${NC}"
+    case $total_dev in
+        1) echo -e "   ${WHITE}• $dev_1${NC}" ;;
+        2) echo -e "   ${WHITE}• $dev_1\n   • $dev_2${NC}" ;;
+        3) echo -e "   ${WHITE}• $dev_1\n   • $dev_2\n   • $dev_3${NC}" ;;
+    esac
+fi
+
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+
+# Clean up temp files (optional)
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Better prompt with animation
+echo -e "\n${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'rescan'${NC} to scan again"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "rescan")
+        echo -e "\n${PURPLE}${BOLD}🔄 Rescanning devices...${NC}"
+        loading_animation "Please wait"
+        clear
+        bash modules/opt1
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        progress_bar 1 "Loading"
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

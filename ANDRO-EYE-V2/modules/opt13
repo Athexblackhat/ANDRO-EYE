@@ -1,0 +1,483 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 13: UNINSTALL PACKAGE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to list installed packages
+list_packages() {
+    local device=$1
+    local model=$2
+    
+    echo -e "\n${CYAN}${BOLD}📋 Fetching installed packages from ${WHITE}$model${NC}..."
+    loading_animation "Please wait"
+    
+    # Get package list
+    local pkg_list=$(adb -s "$device" shell pm list packages 2>/dev/null | sed 's/package://g' | sort)
+    local pkg_count=$(echo "$pkg_list" | wc -l)
+    
+    echo -e "\n${GREEN}${BOLD}✅ Found ${WHITE}$pkg_count${GREEN} installed packages${NC}"
+    
+    # Ask if user wants to see the list
+    echo -ne "\n${YELLOW}${BOLD}❓ Show package list? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+    read show_list
+    echo -ne "${NC}"
+    
+    case ${show_list,,} in
+        y|yes)
+            echo -e "\n${BLUE}${BOLD}══════════════════════════════════════════════════════════${NC}"
+            echo "$pkg_list" | while read pkg; do
+                if [ -n "$pkg" ]; then
+                    echo -e "  ${GREEN}•${NC} ${WHITE}$pkg${NC}"
+                fi
+            done | less
+            echo -e "${BLUE}${BOLD}══════════════════════════════════════════════════════════${NC}"
+            ;;
+    esac
+    
+    # Save to file option
+    echo -ne "\n${YELLOW}${BOLD}❓ Save package list to file? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+    read save_list
+    echo -ne "${NC}"
+    
+    case ${save_list,,} in
+        y|yes)
+            local timestamp=$(date +"%Y%m%d_%H%M%S")
+            local pkg_file="package-lists/${model}-packages-${timestamp}.txt"
+            mkdir -p package-lists 2>/dev/null
+            echo "$pkg_list" > "$pkg_file"
+            echo -e "${GREEN}${BOLD}✅ Package list saved to: ${WHITE}$pkg_file${NC}"
+            ;;
+    esac
+    
+    # Return the package list for potential use
+    echo "$pkg_list"
+}
+
+# Function to uninstall package
+apk_uninstall() {
+    local device=$1
+    local model=$2
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}🗑️  Uninstalling package from:${NC}"
+    display_device_box "-" "$device" "$model" "${GREEN}● Ready${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Ask if user wants to see package list
+    echo -ne "\n${YELLOW}${BOLD}❓ View installed packages before uninstall? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+    read view_packages
+    echo -ne "${NC}"
+    
+    case ${view_packages,,} in
+        y|yes)
+            list_packages "$device" "$model" > /dev/null
+            ;;
+    esac
+    
+    # Get package name with validation
+    while true; do
+        echo -e "\n${CYAN}${BOLD}📦 Enter package name to uninstall${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────────${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Example: ${WHITE}com.example.app${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Type 'list' to see all packages${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Type 'cancel' to go back${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────────${NC}\n"
+        
+        echo -ne "${GREEN}${BOLD}Package name ${WHITE}➤${NC} ${RED}"
+        read uninstall_pkg
+        echo -ne "${NC}"
+        
+        case ${uninstall_pkg,,} in
+            "")
+                pulse_message "❌ Package name cannot be empty!" "${RED}"
+                ;;
+            "list")
+                list_packages "$device" "$model" > /dev/null
+                ;;
+            "cancel")
+                echo -e "\n${BLUE}${BOLD}⏩ Uninstall cancelled${NC}"
+                return 0
+                ;;
+            *)
+                # Check if package exists
+                echo -e "\n${BLUE}${BOLD}🔍 Checking if package exists...${NC}"
+                if adb -s "$device" shell pm list packages | grep -q "$uninstall_pkg"; then
+                    echo -e "${GREEN}${BOLD}✓ Package found${NC}"
+                    
+                    # Confirm uninstall
+                    echo -ne "\n${RED}${BOLD}⚠️  Are you sure you want to uninstall ${WHITE}$uninstall_pkg${RED}? ${WHITE}(y/N) ${RED}➤ ${YELLOW}"
+                    read confirm
+                    echo -ne "${NC}"
+                    
+                    case ${confirm,,} in
+                        y|yes)
+                            echo -e "\n${CYAN}${BOLD}⚡ Uninstalling package...${NC}\n"
+                            
+                            # Show progress during uninstall
+                            local spin='-\|/'
+                            local i=0
+                            
+                            # Run uninstall in background
+                            (
+                                adb -s "$device" uninstall "$uninstall_pkg" > .temp/uninstall_result.tmp 2>&1
+                            ) &
+                            
+                            local pid=$!
+                            
+                            # Show progress while uninstalling
+                            while kill -0 $pid 2>/dev/null; do
+                                i=$(( (i+1) % 4 ))
+                                printf "\r${YELLOW}${BOLD}⏳ Uninstalling ${spin:$i:1} ${NC}"
+                                sleep 0.5
+                            done
+                            
+                            wait $pid 2>/dev/null
+                            local result=$?
+                            
+                            if [ $result -eq 0 ]; then
+                                echo -e "\r${GREEN}${BOLD}✅ Successfully uninstalled ${WHITE}$uninstall_pkg${NC}          \n"
+                                sparkle_effect
+                            else
+                                echo -e "\r${RED}${BOLD}❌ Failed to uninstall ${WHITE}$uninstall_pkg${NC}\n"
+                                
+                                # Show error message if available
+                                if [ -f ".temp/uninstall_result.tmp" ]; then
+                                    local error=$(cat .temp/uninstall_result.tmp | grep -i "error\|failed" | head -1)
+                                    if [ -n "$error" ]; then
+                                        echo -e "${RED}${BOLD}Error: ${WHITE}$error${NC}"
+                                    fi
+                                fi
+                            fi
+                            
+                            # Cleanup
+                            rm -f .temp/uninstall_result.tmp
+                            break
+                            ;;
+                        *)
+                            echo -e "\n${BLUE}${BOLD}⏩ Uninstall cancelled${NC}"
+                            break
+                            ;;
+                    esac
+                else
+                    pulse_message "❌ Package not found: $uninstall_pkg" "${RED}"
+                    echo -e "${YELLOW}${BOLD}💡 Check the package name and try again${NC}"
+                fi
+                ;;
+        esac
+    done
+}
+
+# Clear screen and show banner
+clear
+echo -e "${RED}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██╗   ██╗███╗   ██╗██╗███╗   ██╗███████╗████████╗ █████╗ ██╗     ║
+    ║  ██║   ██║████╗  ██║██║████╗  ██║██╔════╝╚══██╔══╝██╔══██╗██║     ║
+    ║  ██║   ██║██╔██╗ ██║██║██╔██╗ ██║███████╗   ██║   ███████║██║     ║
+    ║  ██║   ██║██║╚██╗██║██║██║╚██╗██║╚════██║   ██║   ██╔══██║██║     ║
+    ║  ╚██████╔╝██║ ╚████║██║██║ ╚████║███████║   ██║   ██║  ██║███████╗║
+    ║   ╚═════╝ ╚═╝  ╚═══╝╚═╝╚═╝  ╚═══╝╚══════╝   ╚═╝   ╚═╝  ╚═╝╚══════╝║
+    ║                                                          ║
+    ║        🗑️  ${GREEN}PACKAGE UNINSTALLER${RED} - ${CYAN}Remove Applications${RED}            ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp package-lists 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to uninstall packages${NC}            ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Device uninstall functions
+dev_1_uninst() {
+    apk_uninstall "$dev_1" "${mod_1:-Unknown}"
+}
+
+dev_2_uninst() {
+    apk_uninstall "$dev_2" "${mod_2:-Unknown}"
+}
+
+dev_3_uninst() {
+    apk_uninstall "$dev_3" "${mod_3:-Unknown}"
+}
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Proceeding with package uninstallation...${NC}"
+        sleep 1
+        dev_1_uninst
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select target device for uninstallation:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_uninst
+                    break
+                    ;;
+                2)
+                    dev_2_uninst
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select target device for uninstallation:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_uninst
+                    break
+                    ;;
+                2)
+                    dev_2_uninst
+                    break
+                    ;;
+                3)
+                    dev_3_uninst
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp .temp/uninstall_result.tmp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'uninstall'${NC} to uninstall another package"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'packages'${NC} to list installed packages"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "uninstall")
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting uninstall process...${NC}"
+        sleep 1
+        clear
+        bash modules/opt13
+        ;;
+    "packages"|"list")
+        echo -e "\n${BLUE}${BOLD}📋 Package list option selected${NC}"
+        if [ "$total_dev" -gt 0 ]; then
+            list_packages "$dev_1" "${mod_1:-Unknown}"
+        fi
+        echo -e "\n${YELLOW}${BOLD}Press Enter to continue...${NC}"
+        read
+        clear
+        bash modules/opt13
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

@@ -1,0 +1,831 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 24: PUT A FILE IN DEVICE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to browse local system
+browse_local() {
+    local current_path="$PWD"
+    
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}📁 Local Browser - ${WHITE}$current_path${NC}\n"
+        
+        # List directories and files
+        echo -e "${YELLOW}${BOLD}Directories:${NC}"
+        ls -la "$current_path" 2>/dev/null | grep "^d" | while read line; do
+            local perms=$(echo "$line" | awk '{print $1}')
+            local name=$(echo "$line" | awk '{print $NF}')
+            echo -e "  ${GREEN}📁${NC} ${WHITE}$name${NC} ${BLUE}($perms)${NC}"
+        done
+        
+        echo -e "\n${YELLOW}${BOLD}Files:${NC}"
+        ls -la "$current_path" 2>/dev/null | grep "^-" | head -20 | while read line; do
+            local size=$(echo "$line" | awk '{print $5}')
+            local name=$(echo "$line" | awk '{print $NF}')
+            local human_size=$(numfmt --to=iec --suffix=B "$size" 2>/dev/null || echo "$size bytes")
+            echo -e "  ${GREEN}📄${NC} ${WHITE}$name${NC} ${YELLOW}($human_size)${NC}"
+        done
+        
+        echo -e "\n${CYAN}${BOLD}Options:${NC}"
+        echo -e "  ${GREEN}•${NC} Enter ${WHITE}directory name${NC} to navigate"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}..${NC} to go up"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}select <file>${NC} to select a file"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}selectdir <dir>${NC} to select a directory"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}done${NC} to finish browsing"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}cancel${NC} to cancel\n"
+        
+        echo -ne "${YELLOW}${BOLD}❓ ${WHITE}$current_path${YELLOW} ➤ ${RED}"
+        read browse_input
+        echo -ne "${NC}"
+        
+        case $browse_input in
+            "done")
+                return 1
+                ;;
+            "cancel")
+                return 1
+                ;;
+            "..")
+                current_path=$(dirname "$current_path")
+                ;;
+            select\ *)
+                local selected_file=$(echo "$browse_input" | cut -d' ' -f2-)
+                if [ -n "$selected_file" ]; then
+                    local full_path="$current_path/$selected_file"
+                    if [ -f "$full_path" ]; then
+                        echo "$full_path"
+                        return 0
+                    else
+                        echo -e "${RED}${BOLD}❌ File not found${NC}"
+                        sleep 1
+                    fi
+                fi
+                ;;
+            selectdir\ *)
+                local selected_dir=$(echo "$browse_input" | cut -d' ' -f2-)
+                if [ -n "$selected_dir" ]; then
+                    local full_path="$current_path/$selected_dir"
+                    if [ -d "$full_path" ]; then
+                        echo "$full_path"
+                        return 0
+                    else
+                        echo -e "${RED}${BOLD}❌ Directory not found${NC}"
+                        sleep 1
+                    fi
+                fi
+                ;;
+            *)
+                # Try to navigate to directory
+                local new_path="$current_path/$browse_input"
+                if [ -d "$new_path" ]; then
+                    current_path="$new_path"
+                else
+                    echo -e "${RED}${BOLD}❌ Not a directory${NC}"
+                    sleep 1
+                fi
+                ;;
+        esac
+    done
+}
+
+# Function to browse device directories
+browse_device() {
+    local device=$1
+    local current_path="/sdcard"
+    
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}📱 Device Browser - ${WHITE}$current_path${NC}\n"
+        
+        # Get directory contents
+        local contents=$(adb -s "$device" shell ls -la "$current_path" 2>/dev/null)
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}${BOLD}❌ Cannot access directory${NC}"
+            break
+        fi
+        
+        # Show directories first, then files
+        echo -e "${YELLOW}${BOLD}Directories:${NC}"
+        echo "$contents" | grep "^d" | while read line; do
+            local perms=$(echo "$line" | awk '{print $1}')
+            local name=$(echo "$line" | awk '{print $NF}')
+            echo -e "  ${GREEN}📁${NC} ${WHITE}$name${NC} ${BLUE}($perms)${NC}"
+        done
+        
+        echo -e "\n${YELLOW}${BOLD}Files:${NC}"
+        echo "$contents" | grep "^-" | head -20 | while read line; do
+            local size=$(echo "$line" | awk '{print $5}')
+            local name=$(echo "$line" | awk '{print $NF}')
+            local human_size=$(numfmt --to=iec --suffix=B "$size" 2>/dev/null || echo "$size bytes")
+            echo -e "  ${GREEN}📄${NC} ${WHITE}$name${NC} ${YELLOW}($human_size)${NC}"
+        done
+        
+        echo -e "\n${CYAN}${BOLD}Options:${NC}"
+        echo -e "  ${GREEN}•${NC} Enter ${WHITE}directory name${NC} to navigate"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}..${NC} to go up"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}select <dir>${NC} to select destination directory"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}done${NC} to finish browsing"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}cancel${NC} to cancel\n"
+        
+        echo -ne "${YELLOW}${BOLD}❓ ${WHITE}$current_path${YELLOW} ➤ ${RED}"
+        read browse_input
+        echo -ne "${NC}"
+        
+        case $browse_input in
+            "done")
+                return 1
+                ;;
+            "cancel")
+                return 1
+                ;;
+            "..")
+                current_path=$(dirname "$current_path")
+                ;;
+            select\ *)
+                local selected_dir=$(echo "$browse_input" | cut -d' ' -f2-)
+                if [ -n "$selected_dir" ]; then
+                    local full_path="$current_path/$selected_dir"
+                    if adb -s "$device" shell test -d "$full_path" 2>/dev/null; then
+                        echo "$full_path"
+                        return 0
+                    else
+                        echo -e "${RED}${BOLD}❌ Directory not found${NC}"
+                        sleep 1
+                    fi
+                fi
+                ;;
+            *)
+                # Try to navigate to directory
+                local new_path="$current_path/$browse_input"
+                if adb -s "$device" shell test -d "$new_path" 2>/dev/null; then
+                    current_path="$new_path"
+                else
+                    echo -e "${RED}${BOLD}❌ Not a directory${NC}"
+                    sleep 1
+                fi
+                ;;
+        esac
+    done
+}
+
+# Function to check if file exists on system
+check_system_file() {
+    local path=$1
+    if [ -f "$path" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check if directory exists on system
+check_system_dir() {
+    local path=$1
+    if [ -d "$path" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check if directory exists on device
+check_device_dir() {
+    local device=$1
+    local path=$2
+    
+    # Remove /sdcard/ prefix if present
+    path="${path#/sdcard/}"
+    
+    local result=$(adb -s "$device" shell "if [ -d /sdcard/$path ]; then echo '0'; else echo '1'; fi" 2>/dev/null | tr -d '\r')
+    if [ "$result" == "0" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to get file info
+get_file_info() {
+    local path=$1
+    local size=$(du -h "$path" 2>/dev/null | cut -f1)
+    local modified=$(stat -c "%y" "$path" 2>/dev/null | cut -d. -f1)
+    
+    echo -e "\n${CYAN}${BOLD}📄 Source File Information:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Path: ${YELLOW}$path${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Size: ${YELLOW}$size${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Modified: ${YELLOW}$modified${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+}
+
+# Function to get directory info
+get_dir_info() {
+    local path=$1
+    local size=$(du -sh "$path" 2>/dev/null | cut -f1)
+    local files=$(find "$path" -type f 2>/dev/null | wc -l)
+    local dirs=$(find "$path" -type d 2>/dev/null | wc -l)
+    
+    echo -e "\n${CYAN}${BOLD}📁 Source Directory Information:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Path: ${YELLOW}$path${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Total size: ${YELLOW}$size${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Files: ${YELLOW}$files${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Subdirectories: ${YELLOW}$((dirs-1))${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+}
+
+# Function to push with progress
+push_item() {
+    local device=$1
+    local model=$2
+    local source_path=$3
+    local dest_path=$4
+    local is_file=$5
+    
+    local item_type="file"
+    [ "$is_file" == "0" ] && item_type="directory"
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}📤 Pushing ${item_type} to device:${NC}"
+    echo -e "  ${WHITE}Source: ${YELLOW}$source_path${NC}"
+    echo -e "  ${WHITE}Destination: ${YELLOW}/sdcard/$dest_path${NC}"
+    
+    # Confirm before pushing
+    echo -ne "\n${YELLOW}${BOLD}❓ Start pushing? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+    read confirm
+    echo -ne "${NC}"
+    
+    case ${confirm,,} in
+        n|no)
+            echo -e "\n${BLUE}${BOLD}⏩ Push cancelled${NC}"
+            return 0
+            ;;
+    esac
+    
+    echo -e "\n${BLUE}${BOLD}⬆️  Transferring...${NC}\n"
+    
+    # Perform the push with progress
+    if [ "$is_file" == "1" ]; then
+        # Push single file
+        (
+            adb -s "$device" push "$source_path" "/sdcard/$dest_path" > .temp/push_output.tmp 2>&1
+        ) &
+    else
+        # Push directory
+        (
+            adb -s "$device" push "$source_path/." "/sdcard/$dest_path/" > .temp/push_output.tmp 2>&1
+        ) &
+    fi
+    
+    local pid=$!
+    local spin='-\|/'
+    local i=0
+    local last_file=""
+    
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) % 4 ))
+        
+        if [ -f ".temp/push_output.tmp" ]; then
+            local current_file=$(tail -2 .temp/push_output.tmp 2>/dev/null | grep -o "[^/]*$" | head -1 | cut -c1-50)
+            if [ -n "$current_file" ] && [ "$current_file" != "$last_file" ]; then
+                last_file="$current_file"
+                printf "\r${YELLOW}${BOLD}⏳ Pushing: ${WHITE}%-50s ${spin:$i:1}${NC}" "${current_file:0:50}"
+            else
+                printf "\r${YELLOW}${BOLD}⏳ Transferring ${spin:$i:1}${NC}                        "
+            fi
+        else
+            printf "\r${YELLOW}${BOLD}⏳ Transferring ${spin:$i:1}${NC}                        "
+        fi
+        
+        sleep 0.5
+    done
+    
+    wait $pid 2>/dev/null
+    local result=$?
+    
+    if [ $result -eq 0 ]; then
+        echo -e "\r${GREEN}${BOLD}✅ Push completed successfully!          ${NC}\n"
+        
+        # Verify the transfer
+        if [ "$is_file" == "1" ]; then
+            if adb -s "$device" shell test -f "/sdcard/$dest_path" 2>/dev/null; then
+                local remote_size=$(adb -s "$device" shell du -h "/sdcard/$dest_path" 2>/dev/null | awk '{print $1}')
+                echo -e "${GREEN}${BOLD}✓ File verified on device${NC}"
+                echo -e "${WHITE}  Size: ${YELLOW}$remote_size${NC}"
+            fi
+        else
+            if adb -s "$device" shell test -d "/sdcard/$dest_path" 2>/dev/null; then
+                local remote_files=$(adb -s "$device" shell find "/sdcard/$dest_path" -type f 2>/dev/null | wc -l)
+                local remote_size=$(adb -s "$device" shell du -sh "/sdcard/$dest_path" 2>/dev/null | awk '{print $1}')
+                echo -e "${GREEN}${BOLD}✓ Directory verified on device${NC}"
+                echo -e "${WHITE}  Files: ${YELLOW}$remote_files${NC}"
+                echo -e "${WHITE}  Size: ${YELLOW}$remote_size${NC}"
+            fi
+        fi
+    else
+        echo -e "\r${RED}${BOLD}❌ Push failed!${NC}\n"
+        
+        if [ -f ".temp/push_output.tmp" ]; then
+            local error=$(grep -i "error\|failed" .temp/push_output.tmp | head -1)
+            if [ -n "$error" ]; then
+                echo -e "${RED}${BOLD}Error: ${WHITE}$error${NC}"
+            fi
+        fi
+    fi
+}
+
+# Function for custom push
+custom_push() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}📤 Pushing to device:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}● Ready${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Choose source selection method
+    echo -e "\n${CYAN}${BOLD}📋 Source Selection Method:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}1.${NC} ${WHITE}Manual path entry${NC}"
+    echo -e "  ${GREEN}2.${NC} ${WHITE}Browse local system${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    
+    echo -ne "${YELLOW}${BOLD}Select method (1-2) ${WHITE}➤${NC} ${RED}"
+    read method_choice
+    echo -ne "${NC}"
+    
+    local source_path=""
+    local is_file=1
+    local file_to_copy=1
+    
+    case $method_choice in
+        2)
+            echo -e "\n${CYAN}${BOLD}📂 Local File Browser${NC}"
+            sleep 1
+            source_path=$(browse_local)
+            if [ $? -eq 0 ] && [ -n "$source_path" ]; then
+                if [ -f "$source_path" ]; then
+                    is_file=1
+                    file_to_copy=1
+                    get_file_info "$source_path"
+                else
+                    is_file=0
+                    file_to_copy=0
+                    get_dir_info "$source_path"
+                fi
+            else
+                echo -e "\n${YELLOW}${BOLD}Using manual entry instead${NC}"
+                method_choice=1
+            fi
+            ;;
+    esac
+    
+    if [ "$method_choice" == "1" ] || [ -z "$source_path" ]; then
+        # Manual entry for source
+        echo -e "\n${CYAN}${BOLD}📝 Source Path Selection${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Examples:${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}/home/user/Documents/file.pdf${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}~/Downloads/folder/${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+        
+        echo -e "${CYAN}${BOLD}Select type:${NC}"
+        echo -e "  ${GREEN}1.${NC} ${WHITE}Push File${NC}"
+        echo -e "  ${GREEN}2.${NC} ${WHITE}Push Directory${NC}"
+        
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter choice (1-2) ${WHITE}➤${NC} ${RED}"
+            read type_choice
+            echo -ne "${NC}"
+            
+            case $type_choice in
+                1|2)
+                    is_file=$((type_choice == 1 ? 1 : 0))
+                    file_to_copy=$((type_choice == 1 ? 1 : 0))
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Please enter 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        
+        # Get source path
+        while true; do
+            if [ "$is_file" == "1" ]; then
+                echo -ne "\n${YELLOW}${BOLD}Enter source file path ${WHITE}➤${NC} ${RED}"
+            else
+                echo -ne "\n${YELLOW}${BOLD}Enter source directory path ${WHITE}➤${NC} ${RED}"
+            fi
+            read source_path
+            echo -ne "${NC}"
+            
+            # Expand tilde
+            source_path="${source_path/#\~/$HOME}"
+            
+            if [ -z "$source_path" ]; then
+                pulse_message "❌ Path cannot be empty!" "${RED}"
+                continue
+            fi
+            
+            # Validate source
+            if [ "$is_file" == "1" ]; then
+                if check_system_file "$source_path"; then
+                    echo -e "${GREEN}${BOLD}✓ Source file found${NC}"
+                    get_file_info "$source_path"
+                    break
+                else
+                    pulse_message "❌ File not found: $source_path" "${RED}"
+                fi
+            else
+                if check_system_dir "$source_path"; then
+                    echo -e "${GREEN}${BOLD}✓ Source directory found${NC}"
+                    get_dir_info "$source_path"
+                    break
+                else
+                    pulse_message "❌ Directory not found: $source_path" "${RED}"
+                fi
+            fi
+        done
+    fi
+    
+    # Choose destination selection method
+    echo -e "\n${CYAN}${BOLD}📋 Destination Selection Method:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}1.${NC} ${WHITE}Manual path entry${NC}"
+    echo -e "  ${GREEN}2.${NC} ${WHITE}Browse device${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    
+    echo -ne "${YELLOW}${BOLD}Select method (1-2) ${WHITE}➤${NC} ${RED}"
+    read dest_method
+    echo -ne "${NC}"
+    
+    local dest_path=""
+    
+    case $dest_method in
+        2)
+            echo -e "\n${CYAN}${BOLD}📱 Device Browser${NC}"
+            sleep 1
+            local device_path=$(browse_device "$device")
+            if [ $? -eq 0 ] && [ -n "$device_path" ]; then
+                dest_path="${device_path#/sdcard/}"
+                echo -e "\n${GREEN}${BOLD}✓ Selected destination: ${WHITE}/sdcard/$dest_path${NC}"
+            else
+                echo -e "\n${YELLOW}${BOLD}Using manual entry instead${NC}"
+                dest_method=1
+            fi
+            ;;
+    esac
+    
+    if [ "$dest_method" == "1" ] || [ -z "$dest_path" ]; then
+        # Manual entry for destination
+        echo -e "\n${CYAN}${BOLD}📝 Destination Path Selection${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Don't include ${WHITE}/sdcard/${YELLOW} in path${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Examples:${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Download/${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Documents/${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}DCIM/Camera/${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+        
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter destination path ${WHITE}➤${NC} ${RED}"
+            read dest_path
+            echo -ne "${NC}"
+            
+            if [ -z "$dest_path" ]; then
+                pulse_message "❌ Path cannot be empty!" "${RED}"
+                continue
+            fi
+            
+            # Remove leading/trailing slashes
+            dest_path=$(echo "$dest_path" | sed 's:^/::' | sed 's:/$::')
+            
+            # Check if destination directory exists
+            if check_device_dir "$device" "$dest_path"; then
+                echo -e "${GREEN}${BOLD}✓ Destination directory exists${NC}"
+                break
+            else
+                echo -e "${YELLOW}${BOLD}⚠️  Directory doesn't exist. Create it? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+                read create_dir
+                echo -ne "${NC}"
+                
+                case ${create_dir,,} in
+                    y|yes)
+                        echo -e "${BLUE}${BOLD}Creating directory...${NC}"
+                        adb -s "$device" shell mkdir -p "/sdcard/$dest_path" 2>/dev/null
+                        if [ $? -eq 0 ]; then
+                            echo -e "${GREEN}${BOLD}✓ Directory created${NC}"
+                            break
+                        else
+                            echo -e "${RED}${BOLD}❌ Failed to create directory${NC}"
+                        fi
+                        ;;
+                    *)
+                        echo -e "${YELLOW}${BOLD}Please enter an existing directory${NC}"
+                        ;;
+                esac
+            fi
+        done
+    fi
+    
+    # Perform the push
+    push_item "$device" "$model" "$source_path" "$dest_path" "$is_file"
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${GREEN}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██████╗ ██╗   ██╗████████╗     ██████╗ ██╗██╗  ██╗     ║
+    ║  ██╔══██╗██║   ██║╚══██╔══╝    ██╔════╝ ██║██║  ██║     ║
+    ║  ██████╔╝██║   ██║   ██║       ██║  ███╗██║███████║     ║
+    ║  ██╔═══╝ ██║   ██║   ██║       ██║   ██║██║██╔══██║     ║
+    ║  ██║     ╚██████╔╝   ██║       ╚██████╔╝██║██║  ██║     ║
+    ║  ╚═╝      ╚═════╝    ╚═╝        ╚═════╝ ╚═╝╚═╝  ╚═╝     ║
+    ║                                                          ║
+    ║        📤 ${PURPLE}FILE PUSHER${GREEN} - ${CYAN}Transfer Files to Device${GREEN}            ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to push files${NC}                 ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting file push...${NC}"
+        sleep 1
+        custom_push "$dev_1" "${mod_1:-Unknown}" "1"
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for file push:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    custom_push "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    custom_push "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for file push:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    custom_push "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    custom_push "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                3)
+                    custom_push "$dev_3" "${mod_3:-Unknown}" "3"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp .temp/push_output.tmp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'push'${NC} to push another file/folder"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "push")
+        echo -e "\n${PURPLE}${BOLD}🔄 Pushing another item...${NC}"
+        sleep 1
+        clear
+        bash modules/opt24
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

@@ -1,0 +1,703 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 23: COPY SPECIFIED FILE OR FOLDER - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to browse device directories
+browse_device() {
+    local device=$1
+    local current_path="/sdcard"
+    
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}📁 Device Browser - ${WHITE}$current_path${NC}\n"
+        
+        # Get directory contents
+        local contents=$(adb -s "$device" shell ls -la "$current_path" 2>/dev/null)
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}${BOLD}❌ Cannot access directory${NC}"
+            break
+        fi
+        
+        # Show directories first, then files
+        echo -e "${YELLOW}${BOLD}Directories:${NC}"
+        echo "$contents" | grep "^d" | while read line; do
+            local perms=$(echo "$line" | awk '{print $1}')
+            local name=$(echo "$line" | awk '{print $NF}')
+            echo -e "  ${GREEN}📁${NC} ${WHITE}$name${NC} ${BLUE}($perms)${NC}"
+        done
+        
+        echo -e "\n${YELLOW}${BOLD}Files:${NC}"
+        echo "$contents" | grep "^-" | head -20 | while read line; do
+            local size=$(echo "$line" | awk '{print $5}')
+            local name=$(echo "$line" | awk '{print $NF}')
+            local human_size=$(numfmt --to=iec --suffix=B "$size" 2>/dev/null || echo "$size bytes")
+            echo -e "  ${GREEN}📄${NC} ${WHITE}$name${NC} ${YELLOW}($human_size)${NC}"
+        done
+        
+        echo -e "\n${CYAN}${BOLD}Options:${NC}"
+        echo -e "  ${GREEN}•${NC} Enter ${WHITE}directory name${NC} to navigate"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}..${NC} to go up"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}select <file>${NC} to select a file"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}selectdir <dir>${NC} to select a directory"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}done${NC} to finish browsing"
+        echo -e "  ${GREEN}•${NC} Type ${WHITE}cancel${NC} to cancel\n"
+        
+        echo -ne "${YELLOW}${BOLD}❓ ${WHITE}$current_path${YELLOW} ➤ ${RED}"
+        read browse_input
+        echo -ne "${NC}"
+        
+        case $browse_input in
+            "done")
+                return 1
+                ;;
+            "cancel")
+                return 1
+                ;;
+            "..")
+                current_path=$(dirname "$current_path")
+                ;;
+            select\ *)
+                local selected_file=$(echo "$browse_input" | cut -d' ' -f2-)
+                if [ -n "$selected_file" ]; then
+                    local full_path="$current_path/$selected_file"
+                    if adb -s "$device" shell test -f "$full_path" 2>/dev/null; then
+                        echo "$full_path"
+                        return 0
+                    else
+                        echo -e "${RED}${BOLD}❌ File not found${NC}"
+                        sleep 1
+                    fi
+                fi
+                ;;
+            selectdir\ *)
+                local selected_dir=$(echo "$browse_input" | cut -d' ' -f2-)
+                if [ -n "$selected_dir" ]; then
+                    local full_path="$current_path/$selected_dir"
+                    if adb -s "$device" shell test -d "$full_path" 2>/dev/null; then
+                        echo "$full_path"
+                        return 0
+                    else
+                        echo -e "${RED}${BOLD}❌ Directory not found${NC}"
+                        sleep 1
+                    fi
+                fi
+                ;;
+            *)
+                # Try to navigate to directory
+                local new_path="$current_path/$browse_input"
+                if adb -s "$device" shell test -d "$new_path" 2>/dev/null; then
+                    current_path="$new_path"
+                else
+                    echo -e "${RED}${BOLD}❌ Not a directory${NC}"
+                    sleep 1
+                fi
+                ;;
+        esac
+    done
+}
+
+# Function to check if file exists
+check_file_exists() {
+    local device=$1
+    local path=$2
+    
+    # Remove /sdcard/ prefix if present
+    path="${path#/sdcard/}"
+    
+    local result=$(adb -s "$device" shell "if [ -f /sdcard/$path ]; then echo '0'; else echo '1'; fi" 2>/dev/null | tr -d '\r')
+    if [ "$result" == "0" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to check if directory exists
+check_dir_exists() {
+    local device=$1
+    local path=$2
+    
+    # Remove /sdcard/ prefix if present
+    path="${path#/sdcard/}"
+    
+    local result=$(adb -s "$device" shell "if [ -d /sdcard/$path ]; then echo '0'; else echo '1'; fi" 2>/dev/null | tr -d '\r')
+    if [ "$result" == "0" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to get file/directory info
+get_item_info() {
+    local device=$1
+    local path=$2
+    local is_file=$3
+    
+    if [ "$is_file" == "1" ]; then
+        local size=$(adb -s "$device" shell du -h "/sdcard/$path" 2>/dev/null | awk '{print $1}')
+        local modified=$(adb -s "$device" shell ls -l "/sdcard/$path" 2>/dev/null | awk '{print $6, $7, $8}')
+        echo -e "\n${CYAN}${BOLD}📄 File Information:${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Path: ${YELLOW}/sdcard/$path${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Size: ${YELLOW}$size${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Modified: ${YELLOW}$modified${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    else
+        local size=$(adb -s "$device" shell du -sh "/sdcard/$path" 2>/dev/null | awk '{print $1}')
+        local files=$(adb -s "$device" shell find "/sdcard/$path" -type f 2>/dev/null | wc -l)
+        local dirs=$(adb -s "$device" shell find "/sdcard/$path" -type d 2>/dev/null | wc -l)
+        echo -e "\n${CYAN}${BOLD}📁 Directory Information:${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Path: ${YELLOW}/sdcard/$path${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Total size: ${YELLOW}$size${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Files: ${YELLOW}$files${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Subdirectories: ${YELLOW}$((dirs-1))${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    fi
+}
+
+# Function to pull file/directory with progress
+pull_item() {
+    local device=$1
+    local model=$2
+    local path=$3
+    local is_file=$4
+    local dest_dir=$5
+    
+    local item_type="file"
+    [ "$is_file" == "0" ] && item_type="directory"
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}📥 Copying ${item_type}: ${WHITE}$path${NC}"
+    
+    # Create destination directory
+    local timestamp=$(date +"%Y%m%d_%H-%M-%S")
+    local custom_dir="${dest_dir}/custom-${timestamp}"
+    mkdir -p "$custom_dir" 2>/dev/null
+    
+    # Show item info
+    get_item_info "$device" "$path" "$is_file"
+    
+    # Start pulling
+    echo -e "\n${BLUE}${BOLD}⬇️  Copying...${NC}\n"
+    
+    local remote_path="/sdcard/$path"
+    if [ "$is_file" == "1" ]; then
+        # Copy single file
+        (
+            adb -s "$device" pull "$remote_path" "$custom_dir/" > .temp/pull_output.tmp 2>&1
+        ) &
+    else
+        # Copy directory
+        (
+            adb -s "$device" pull "$remote_path/." "$custom_dir/$(basename "$path")/" > .temp/pull_output.tmp 2>&1
+        ) &
+    fi
+    
+    local pid=$!
+    local spin='-\|/'
+    local i=0
+    local last_file=""
+    
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) % 4 ))
+        
+        if [ -f ".temp/pull_output.tmp" ]; then
+            local current_file=$(tail -2 .temp/pull_output.tmp 2>/dev/null | grep -o "[^/]*$" | head -1 | cut -c1-50)
+            if [ -n "$current_file" ] && [ "$current_file" != "$last_file" ]; then
+                last_file="$current_file"
+                printf "\r${YELLOW}${BOLD}⏳ Copying: ${WHITE}%-50s ${spin:$i:1}${NC}" "${current_file:0:50}"
+            else
+                printf "\r${YELLOW}${BOLD}⏳ Copying ${item_type} ${spin:$i:1}${NC}                        "
+            fi
+        else
+            printf "\r${YELLOW}${BOLD}⏳ Copying ${item_type} ${spin:$i:1}${NC}                        "
+        fi
+        
+        sleep 0.5
+    done
+    
+    wait $pid 2>/dev/null
+    local result=$?
+    
+    if [ $result -eq 0 ]; then
+        echo -e "\r${GREEN}${BOLD}✅ Copy completed successfully!          ${NC}\n"
+        
+        # Show result
+        if [ "$is_file" == "1" ]; then
+            local copied_file="$custom_dir/$(basename "$path")"
+            if [ -f "$copied_file" ]; then
+                local size=$(du -h "$copied_file" | cut -f1)
+                echo -e "${GREEN}${BOLD}✓ File saved: ${WHITE}$copied_file ${YELLOW}($size)${NC}"
+            fi
+        else
+            local copied_dir="$custom_dir/$(basename "$path")"
+            if [ -d "$copied_dir" ]; then
+                local files=$(find "$copied_dir" -type f | wc -l)
+                local size=$(du -sh "$copied_dir" | cut -f1)
+                echo -e "${GREEN}${BOLD}✓ Directory saved: ${WHITE}$copied_dir${NC}"
+                echo -e "${GREEN}${BOLD}✓ Files copied: ${YELLOW}$files${NC}"
+                echo -e "${GREEN}${BOLD}✓ Total size: ${YELLOW}$size${NC}"
+            fi
+        fi
+        
+        # Ask to open folder
+        echo -ne "\n${YELLOW}${BOLD}❓ Open destination folder? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read folder_choice
+        echo -ne "${NC}"
+        
+        case ${folder_choice,,} in
+            y|yes)
+                if command -v xdg-open &>/dev/null; then
+                    xdg-open "$custom_dir"
+                elif command -v open &>/dev/null; then
+                    open "$custom_dir"
+                else
+                    echo -e "${YELLOW}${BOLD}Folder: ${WHITE}$custom_dir${NC}"
+                fi
+                ;;
+        esac
+    else
+        echo -e "\r${RED}${BOLD}❌ Copy failed!${NC}\n"
+        
+        if [ -f ".temp/pull_output.tmp" ]; then
+            local error=$(grep -i "error\|failed" .temp/pull_output.tmp | head -1)
+            if [ -n "$error" ]; then
+                echo -e "${RED}${BOLD}Error: ${WHITE}$error${NC}"
+            fi
+        fi
+    fi
+}
+
+# Function for custom pull
+custom_pull() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}📂 Custom copy from:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}● Ready${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Create base directory
+    local safe_id=$(echo "$device" | tr -d '[:punct:]' | cut -c1-8)
+    local base_dir="$PWD/device-pull/${model}-${safe_id}"
+    mkdir -p "$base_dir" 2>/dev/null
+    
+    # Choose copy method
+    echo -e "\n${CYAN}${BOLD}📋 Copy Method:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}1.${NC} ${WHITE}Manual path entry${NC}"
+    echo -e "  ${GREEN}2.${NC} ${WHITE}Browse device (interactive)${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    
+    echo -ne "${YELLOW}${BOLD}Select method (1-2) ${WHITE}➤${NC} ${RED}"
+    read method_choice
+    echo -ne "${NC}"
+    
+    local file_to_copy=1
+    local selected_path=""
+    
+    case $method_choice in
+        2)
+            echo -e "\n${CYAN}${BOLD}📱 Device Browser (press Ctrl+C to cancel)${NC}"
+            sleep 1
+            selected_path=$(browse_device "$device")
+            if [ $? -eq 0 ] && [ -n "$selected_path" ]; then
+                # Check if it's a file or directory
+                if adb -s "$device" shell test -f "$selected_path" 2>/dev/null; then
+                    file_to_copy=1
+                    selected_path="${selected_path#/sdcard/}"
+                else
+                    file_to_copy=0
+                    selected_path="${selected_path#/sdcard/}"
+                fi
+            else
+                echo -e "\n${YELLOW}${BOLD}Using manual entry instead${NC}"
+                method_choice=1
+            fi
+            ;;
+    esac
+    
+    if [ "$method_choice" == "1" ] || [ -z "$selected_path" ]; then
+        # Manual entry
+        echo -e "\n${CYAN}${BOLD}📝 Manual Path Entry${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Don't include ${WHITE}/sdcard/${YELLOW} in path${NC}"
+        echo -e "${YELLOW}${BOLD}💡 Examples:${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Download/document.pdf${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}DCIM/Camera/IMG_001.jpg${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}WhatsApp/Media/WhatsApp Images${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+        
+        echo -e "${CYAN}${BOLD}Select type:${NC}"
+        echo -e "  ${GREEN}1.${NC} ${WHITE}Copy File${NC}"
+        echo -e "  ${GREEN}2.${NC} ${WHITE}Copy Directory${NC}"
+        
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter choice (1-2) ${WHITE}➤${NC} ${RED}"
+            read type_choice
+            echo -ne "${NC}"
+            
+            case $type_choice in
+                1|2)
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Please enter 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        
+        file_to_copy=$((type_choice == 1 ? 1 : 0))
+        
+        while true; do
+            if [ "$file_to_copy" == "1" ]; then
+                echo -ne "\n${YELLOW}${BOLD}Enter file path ${WHITE}➤${NC} ${RED}"
+            else
+                echo -ne "\n${YELLOW}${BOLD}Enter directory path ${WHITE}➤${NC} ${RED}"
+            fi
+            read selected_path
+            echo -ne "${NC}"
+            
+            if [ -z "$selected_path" ]; then
+                pulse_message "❌ Path cannot be empty!" "${RED}"
+                continue
+            fi
+            
+            # Remove leading/trailing slashes
+            selected_path=$(echo "$selected_path" | sed 's:^/::' | sed 's:/$::')
+            
+            # Validate path
+            if [ "$file_to_copy" == "1" ]; then
+                if check_file_exists "$device" "$selected_path"; then
+                    echo -e "${GREEN}${BOLD}✓ File found${NC}"
+                    break
+                else
+                    pulse_message "❌ File not found: /sdcard/$selected_path" "${RED}"
+                fi
+            else
+                if check_dir_exists "$device" "$selected_path"; then
+                    echo -e "${GREEN}${BOLD}✓ Directory found${NC}"
+                    break
+                else
+                    pulse_message "❌ Directory not found: /sdcard/$selected_path" "${RED}"
+                fi
+            fi
+        done
+    fi
+    
+    # Perform the copy
+    pull_item "$device" "$model" "$selected_path" "$file_to_copy" "$base_dir"
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${CYAN}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║   ██████╗██╗   ██╗███████╗████████╗ ██████╗ ███╗   ███╗   ║
+    ║  ██╔════╝██║   ██║██╔════╝╚══██╔══╝██╔═══██╗████╗ ████║   ║
+    ║  ██║     ██║   ██║███████╗   ██║   ██║   ██║██╔████╔██║   ║
+    ║  ██║     ██║   ██║╚════██║   ██║   ██║   ██║██║╚██╔╝██║   ║
+    ║  ╚██████╗╚██████╔╝███████║   ██║   ╚██████╔╝██║ ╚═╝ ██║   ║
+    ║   ╚═════╝ ╚═════╝ ╚══════╝   ╚═╝    ╚═════╝ ╚═╝     ╚═╝   ║
+    ║                                                          ║
+    ║        📂 ${PURPLE}CUSTOM FILE/FOLDER COPY${CYAN} - ${GREEN}Selective Downloader${CYAN}      ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp device-pull 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to copy files${NC}                 ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting custom file copy...${NC}"
+        sleep 1
+        custom_pull "$dev_1" "${mod_1:-Unknown}" "1"
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for custom copy:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    custom_pull "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    custom_pull "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device for custom copy:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    custom_pull "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    custom_pull "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                3)
+                    custom_pull "$dev_3" "${mod_3:-Unknown}" "3"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp .temp/pull_output.tmp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'copy'${NC} to copy another file/folder"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'folder'${NC} to open device-pull folder"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "copy")
+        echo -e "\n${PURPLE}${BOLD}🔄 Copying another item...${NC}"
+        sleep 1
+        clear
+        bash modules/opt23
+        ;;
+    "folder")
+        echo -e "\n${BLUE}${BOLD}📂 Opening device-pull folder...${NC}"
+        if command -v xdg-open &>/dev/null; then
+            xdg-open "device-pull"
+        elif command -v open &>/dev/null; then
+            open "device-pull"
+        else
+            echo -e "${YELLOW}${BOLD}Folder: ${WHITE}$PWD/device-pull${NC}"
+        fi
+        sleep 2
+        clear
+        bash modules/opt23
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

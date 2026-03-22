@@ -1,0 +1,616 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 21: COPY ALL WHATSAPP DATA - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to show WhatsApp data statistics
+show_whatsapp_stats() {
+    local dest_dir=$1
+    
+    if [ -d "$dest_dir" ]; then
+        # Count different types of files
+        local images=$(find "$dest_dir" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.gif" \) 2>/dev/null | wc -l)
+        local videos=$(find "$dest_dir" -type f \( -iname "*.mp4" -o -iname "*.3gp" -o -iname "*.mov" -o -iname "*.avi" \) 2>/dev/null | wc -l)
+        local audio=$(find "$dest_dir" -type f \( -iname "*.mp3" -o -iname "*.m4a" -o -iname "*.opus" -o -iname "*.aac" \) 2>/dev/null | wc -l)
+        local documents=$(find "$dest_dir" -type f \( -iname "*.pdf" -o -iname "*.doc" -o -iname "*.docx" -o -iname "*.txt" \) 2>/dev/null | wc -l)
+        local databases=$(find "$dest_dir" -type f \( -iname "*.db" -o -iname "*.crypt" \) 2>/dev/null | wc -l)
+        
+        local total_files=$((images + videos + audio + documents + databases))
+        local total_size=$(du -sh "$dest_dir" 2>/dev/null | cut -f1)
+        
+        echo -e "\n${CYAN}${BOLD}📊 WhatsApp Data Analysis:${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Total files: ${YELLOW}$total_files${NC}"
+        echo -e "  ${GREEN}•${NC} ${WHITE}Total size: ${YELLOW}$total_size${NC}"
+        echo -e "\n${YELLOW}${BOLD}📁 Breakdown by type:${NC}"
+        [ $images -gt 0 ] && echo -e "  ${GREEN}🖼️${NC} Images: ${YELLOW}$images${NC}"
+        [ $videos -gt 0 ] && echo -e "  ${GREEN}🎥${NC} Videos: ${YELLOW}$videos${NC}"
+        [ $audio -gt 0 ] && echo -e "  ${GREEN}🎵${NC} Audio: ${YELLOW}$audio${NC}"
+        [ $documents -gt 0 ] && echo -e "  ${GREEN}📄${NC} Documents: ${YELLOW}$documents${NC}"
+        [ $databases -gt 0 ] && echo -e "  ${GREEN}🗄️${NC} Databases: ${YELLOW}$databases${NC}"
+        
+        # Show recent media
+        echo -e "\n${PURPLE}${BOLD}🆕 Recent media:${NC}"
+        find "$dest_dir" -type f \( -iname "*.jpg" -o -iname "*.mp4" \) -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -5 | while read line; do
+            file=$(echo "$line" | cut -d' ' -f2-)
+            if [ -f "$file" ]; then
+                size=$(du -h "$file" 2>/dev/null | cut -f1)
+                echo -e "  ${GREEN}•${NC} ${WHITE}$(basename "$file") ${YELLOW}($size)${NC}"
+            fi
+        done
+        
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    fi
+}
+
+# Function to check WhatsApp installation
+check_whatsapp() {
+    local device=$1
+    
+    if adb -s "$device" shell pm list packages | grep -q "com.whatsapp"; then
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to get WhatsApp version
+get_whatsapp_version() {
+    local device=$1
+    
+    local version=$(adb -s "$device" shell dumpsys package com.whatsapp | grep versionName | head -1 | cut -d= -f2)
+    echo "$version"
+}
+
+# Function to pull WhatsApp data
+pull_whatsapp() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}📱 Copying WhatsApp data from:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}● Processing${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Check if WhatsApp is installed
+    echo -e "\n${BLUE}${BOLD}🔍 Checking WhatsApp installation...${NC}"
+    if check_whatsapp "$device"; then
+        local wa_version=$(get_whatsapp_version "$device")
+        echo -e "${GREEN}${BOLD}✓ WhatsApp is installed ${WHITE}(version: ${wa_version:-Unknown})${NC}"
+    else
+        echo -e "${YELLOW}${BOLD}⚠️  WhatsApp does not appear to be installed on this device${NC}"
+        echo -ne "\n${YELLOW}${BOLD}❓ Continue anyway? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read continue_anyway
+        echo -ne "${NC}"
+        
+        case ${continue_anyway,,} in
+            y|yes)
+                echo -e "${YELLOW}${BOLD}Continuing...${NC}"
+                ;;
+            *)
+                echo -e "\n${BLUE}${BOLD}⏩ Operation cancelled${NC}"
+                return 0
+                ;;
+        esac
+    fi
+    
+    # Try different possible WhatsApp paths
+    echo -e "\n${BLUE}${BOLD}🔍 Locating WhatsApp folder...${NC}"
+    local remote_path=""
+    local possible_paths=(
+        "/sdcard/WhatsApp"
+        "/storage/emulated/0/WhatsApp"
+        "/sdcard/Android/media/com.whatsapp/WhatsApp"
+        "/storage/emulated/0/Android/media/com.whatsapp/WhatsApp"
+    )
+    
+    for path in "${possible_paths[@]}"; do
+        if adb -s "$device" shell test -d "$path" 2>/dev/null; then
+            remote_path="$path"
+            echo -e "${GREEN}${BOLD}✓ Found WhatsApp folder at: ${WHITE}$path${NC}"
+            break
+        fi
+    done
+    
+    if [ -z "$remote_path" ]; then
+        pulse_message "❌ Could not find WhatsApp folder on device" "${RED}"
+        echo -e "${YELLOW}${BOLD}Note: WhatsApp data might be in a different location or encrypted${NC}"
+        return 1
+    fi
+    
+    # Analyze WhatsApp folder
+    echo -e "\n${BLUE}${BOLD}📊 Analyzing WhatsApp data...${NC}"
+    
+    # Get folder sizes
+    local total_size=$(adb -s "$device" shell du -sh "$remote_path" 2>/dev/null | awk '{print $1}')
+    local media_size=$(adb -s "$device" shell du -sh "${remote_path}/Media" 2>/dev/null | awk '{print $1}')
+    local databases_size=$(adb -s "$device" shell du -sh "${remote_path}/Databases" 2>/dev/null | awk '{print $1}')
+    
+    echo -e "  ${GREEN}•${NC} ${WHITE}Total size: ${YELLOW}${total_size:-Unknown}${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Media folder: ${YELLOW}${media_size:-Unknown}${NC}"
+    echo -e "  ${GREEN}•${NC} ${WHITE}Databases: ${YELLOW}${databases_size:-Unknown}${NC}"
+    
+    # Show subfolder structure
+    echo -e "\n${CYAN}${BOLD}📂 WhatsApp folder structure:${NC}"
+    adb -s "$device" shell ls -la "$remote_path" 2>/dev/null | grep "^d" | tail -n +1 | head -10 | while read line; do
+        folder=$(echo "$line" | awk '{print $NF}')
+        echo -e "  ${GREEN}📁${NC} ${WHITE}$folder${NC}"
+    done
+    
+    # Ask what to copy
+    echo -e "\n${YELLOW}${BOLD}📋 Select data to copy:${NC}"
+    echo -e "  ${GREEN}1.${NC} ${WHITE}Everything (Media + Databases + Backups)${NC}"
+    echo -e "  ${GREEN}2.${NC} ${WHITE}Media only (Images, Videos, Audio)${NC}"
+    echo -e "  ${GREEN}3.${NC} ${WHITE}Databases only (Chat history)${NC}"
+    echo -e "  ${GREEN}4.${NC} ${WHITE}Specific folders${NC}"
+    
+    echo -ne "\n${YELLOW}${BOLD}Select option (1-4) ${WHITE}➤${NC} ${RED}"
+    read copy_option
+    echo -ne "${NC}"
+    
+    local copy_path="$remote_path"
+    local suffix="WhatsApp-Full"
+    
+    case $copy_option in
+        2)
+            copy_path="${remote_path}/Media"
+            suffix="WhatsApp-Media"
+            ;;
+        3)
+            copy_path="${remote_path}/Databases"
+            suffix="WhatsApp-Databases"
+            ;;
+        4)
+            echo -e "\n${CYAN}${BOLD}Available folders:${NC}"
+            adb -s "$device" shell ls -la "$remote_path" 2>/dev/null | grep "^d" | while read line; do
+                folder=$(echo "$line" | awk '{print $NF}')
+                echo -e "  ${GREEN}•${NC} ${WHITE}$folder${NC}"
+            done
+            
+            echo -ne "\n${YELLOW}${BOLD}Enter folder name ${WHITE}➤${NC} ${RED}"
+            read specific_folder
+            echo -ne "${NC}"
+            copy_path="${remote_path}/${specific_folder}"
+            suffix="WhatsApp-${specific_folder}"
+            ;;
+    esac
+    
+    # Create destination directory
+    local safe_id=$(echo "$device" | tr -d '[:punct:]' | cut -c1-8)
+    local base_dir="$PWD/device-pull/${model}-${safe_id}"
+    local timestamp=$(date +"%Y%m%d_%H-%M-%S")
+    local dest_dir="${base_dir}/${suffix}-${timestamp}"
+    
+    mkdir -p "$dest_dir" 2>/dev/null
+    
+    echo -e "\n${CYAN}${BOLD}📂 Destination: ${WHITE}$dest_dir${NC}"
+    
+    # Confirm before proceeding
+    echo -ne "\n${YELLOW}${BOLD}❓ Start copying WhatsApp data? ${WHITE}(Y/n) ${YELLOW}➤ ${RED}"
+    read confirm
+    echo -ne "${NC}"
+    
+    case ${confirm,,} in
+        n|no)
+            echo -e "\n${BLUE}${BOLD}⏩ Copy cancelled${NC}"
+            return 0
+            ;;
+    esac
+    
+    # Start pulling files
+    echo -e "\n${PURPLE}${BOLD}⬇️  Copying WhatsApp data from device...${NC}"
+    echo -e "${YELLOW}${BOLD}This may take a while depending on data size${NC}\n"
+    
+    # Run pull in background with progress
+    (
+        adb -s "$device" pull "$copy_path/." "$dest_dir/" > .temp/pull_output.tmp 2>&1
+    ) &
+    
+    local pid=$!
+    local spin='-\|/'
+    local i=0
+    local last_file=""
+    
+    # Show progress while pulling
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) % 4 ))
+        
+        # Check if there's any progress info
+        if [ -f ".temp/pull_output.tmp" ]; then
+            local current_file=$(tail -2 .temp/pull_output.tmp 2>/dev/null | grep -o "[^/]*$" | head -1 | cut -c1-50)
+            if [ -n "$current_file" ] && [ "$current_file" != "$last_file" ]; then
+                last_file="$current_file"
+                printf "\r${YELLOW}${BOLD}⏳ Copying: ${WHITE}%-50s ${spin:$i:1}${NC}" "${current_file:0:50}"
+            else
+                printf "\r${YELLOW}${BOLD}⏳ Copying WhatsApp data ${spin:$i:1}${NC}                  "
+            fi
+        else
+            printf "\r${YELLOW}${BOLD}⏳ Copying WhatsApp data ${spin:$i:1}${NC}                  "
+        fi
+        
+        sleep 0.5
+    done
+    
+    wait $pid 2>/dev/null
+    local result=$?
+    
+    if [ $result -eq 0 ]; then
+        echo -e "\r${GREEN}${BOLD}✅ WhatsApp data copied successfully!          ${NC}\n"
+        
+        # Show statistics
+        show_whatsapp_stats "$dest_dir"
+        
+        # Ask if user wants to open the folder
+        echo -ne "\n${YELLOW}${BOLD}❓ Open destination folder? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read folder_choice
+        echo -ne "${NC}"
+        
+        case ${folder_choice,,} in
+            y|yes)
+                if command -v xdg-open &>/dev/null; then
+                    xdg-open "$dest_dir"
+                elif command -v open &>/dev/null; then
+                    open "$dest_dir"
+                else
+                    echo -e "${YELLOW}${BOLD}Folder: ${WHITE}$dest_dir${NC}"
+                fi
+                ;;
+        esac
+        
+        # Ask if user wants to view databases
+        if [ -d "${dest_dir}/Databases" ] || [ -d "${dest_dir}/databases" ]; then
+            echo -ne "\n${YELLOW}${BOLD}❓ WhatsApp databases found. View them? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+            read db_choice
+            echo -ne "${NC}"
+            
+            case ${db_choice,,} in
+                y|yes)
+                    local db_dir="${dest_dir}/Databases"
+                    [ ! -d "$db_dir" ] && db_dir="${dest_dir}/databases"
+                    
+                    if [ -d "$db_dir" ]; then
+                        echo -e "\n${CYAN}${BOLD}🗄️  Database files:${NC}"
+                        ls -lh "$db_dir" | grep -v "^total" | head -10 | while read line; do
+                            echo -e "  ${GREEN}•${NC} ${WHITE}$line${NC}"
+                        done
+                    fi
+                    ;;
+            esac
+        fi
+        
+    else
+        echo -e "\r${RED}${BOLD}❌ Copy failed!${NC}\n"
+        
+        # Show error if available
+        if [ -f ".temp/pull_output.tmp" ]; then
+            local error=$(grep -i "error\|failed" .temp/pull_output.tmp | head -1)
+            if [ -n "$error" ]; then
+                echo -e "${RED}${BOLD}Error: ${WHITE}$error${NC}"
+            fi
+        fi
+    fi
+    
+    # Cleanup
+    rm -f .temp/pull_output.tmp
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${GREEN}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██╗    ██╗██╗  ██╗ █████╗ ████████╗███████╗ █████╗ ██████╗ ║
+    ║  ██║    ██║██║  ██║██╔══██╗╚══██╔══╝██╔════╝██╔══██╗██╔══██╗║
+    ║  ██║ █╗ ██║███████║███████║   ██║   ███████╗███████║██████╔╝║
+    ║  ██║███╗██║██╔══██║██╔══██║   ██║   ╚════██║██╔══██║██╔═══╝ ║
+    ║  ╚███╔███╔╝██║  ██║██║  ██║   ██║   ███████║██║  ██║██║     ║
+    ║   ╚══╝╚══╝ ╚═╝  ╚═╝╚═╝  ╚═╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝     ║
+    ║                                                          ║
+    ║        💬 ${PURPLE}WHATSAPP DATA COPY${GREEN} - ${CYAN}Media & Chat Backup${GREEN}           ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp device-pull 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to copy WhatsApp data${NC}            ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Show existing WhatsApp copies
+if [ -d "device-pull" ]; then
+    wa_count=$(find device-pull -type d -name "WhatsApp-*" 2>/dev/null | wc -l)
+    if [ "$wa_count" -gt 0 ]; then
+        echo -e "\n${CYAN}${BOLD}📁 Previous WhatsApp copies: ${WHITE}$wa_count${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        ls -ld device-pull/*/WhatsApp-* 2>/dev/null | tail -n +1 | head -3 | while read line; do
+            echo -e "  ${GREEN}•${NC} ${WHITE}$(basename $(dirname "$line"))/$(basename "$line")${NC}"
+        done
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    fi
+fi
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting WhatsApp data copy...${NC}"
+        sleep 1
+        pull_whatsapp "$dev_1" "${mod_1:-Unknown}" "1"
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to copy WhatsApp data:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    pull_whatsapp "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    pull_whatsapp "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to copy WhatsApp data:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    pull_whatsapp "$dev_1" "${mod_1:-Unknown}" "1"
+                    break
+                    ;;
+                2)
+                    pull_whatsapp "$dev_2" "${mod_2:-Unknown}" "2"
+                    break
+                    ;;
+                3)
+                    pull_whatsapp "$dev_3" "${mod_3:-Unknown}" "3"
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp .temp/pull_output.tmp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'copy'${NC} to copy from another device"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'folder'${NC} to open device-pull folder"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "copy")
+        echo -e "\n${PURPLE}${BOLD}🔄 Copying from another device...${NC}"
+        sleep 1
+        clear
+        bash modules/opt21
+        ;;
+    "folder")
+        echo -e "\n${BLUE}${BOLD}📂 Opening device-pull folder...${NC}"
+        if command -v xdg-open &>/dev/null; then
+            xdg-open "device-pull"
+        elif command -v open &>/dev/null; then
+            open "device-pull"
+        else
+            echo -e "${YELLOW}${BOLD}Folder: ${WHITE}$PWD/device-pull${NC}"
+        fi
+        sleep 2
+        clear
+        bash modules/opt21
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

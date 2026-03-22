@@ -1,0 +1,469 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 15: SEE LIVE LOG OF DEVICE - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to show logcat with options
+show_logcat() {
+    local device=$1
+    local model=$2
+    local device_num=$3
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}📱 Viewing logs for:${NC}"
+    display_device_box "$device_num" "$device" "$model" "${GREEN}● Ready${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    # Logcat options
+    echo -e "\n${CYAN}${BOLD}📋 Logcat Options:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    echo -e "  ${GREEN}1.${NC} ${WHITE}Live log (real-time)${NC}"
+    echo -e "  ${GREEN}2.${NC} ${WHITE}Clear log buffer${NC}"
+    echo -e "  ${GREEN}3.${NC} ${WHITE}Filter by priority (ERROR/WARN/INFO)${NC}"
+    echo -e "  ${GREEN}4.${NC} ${WHITE}Filter by tag (e.g., ActivityManager)${NC}"
+    echo -e "  ${GREEN}5.${NC} ${WHITE}Save logs to file${NC}"
+    echo -e "  ${GREEN}6.${NC} ${WHITE}View kernel logs (dmesg)${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    
+    echo -ne "${YELLOW}${BOLD}Select option (1-6) ${WHITE}➤${NC} ${RED}"
+    read log_option
+    echo -ne "${NC}"
+    
+    case $log_option in
+        1)
+            echo -e "\n${GREEN}${BOLD}📡 Starting real-time logcat (Press Ctrl+C to stop)${NC}"
+            echo -e "${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}\n"
+            
+            # Run logcat with formatting
+            adb -s "$device" logcat -v color
+            ;;
+            
+        2)
+            echo -e "\n${BLUE}${BOLD}🧹 Clearing log buffer...${NC}"
+            adb -s "$device" logcat -c
+            if [ $? -eq 0 ]; then
+                echo -e "${GREEN}${BOLD}✅ Log buffer cleared successfully${NC}"
+            else
+                echo -e "${RED}${BOLD}❌ Failed to clear log buffer${NC}"
+            fi
+            ;;
+            
+        3)
+            echo -e "\n${CYAN}${BOLD}Select priority level:${NC}"
+            echo -e "  ${GREEN}1.${NC} ${RED}ERROR${NC}"
+            echo -e "  ${GREEN}2.${NC} ${YELLOW}WARN${NC}"
+            echo -e "  ${GREEN}3.${NC} ${GREEN}INFO${NC}"
+            echo -e "  ${GREEN}4.${NC} ${BLUE}DEBUG${NC}"
+            echo -e "  ${GREEN}5.${NC} ${PURPLE}VERBOSE${NC}"
+            
+            echo -ne "\n${YELLOW}${BOLD}Choice ${WHITE}➤${NC} ${RED}"
+            read priority_choice
+            echo -ne "${NC}"
+            
+            case $priority_choice in
+                1) priority="E" ;;
+                2) priority="W" ;;
+                3) priority="I" ;;
+                4) priority="D" ;;
+                5) priority="V" ;;
+                *) priority="I" ;;
+            esac
+            
+            echo -e "\n${GREEN}${BOLD}📡 Showing ${priority} level logs (Press Ctrl+C to stop)${NC}"
+            echo -e "${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}\n"
+            
+            adb -s "$device" logcat "*:$priority" -v color
+            ;;
+            
+        4)
+            echo -ne "\n${CYAN}${BOLD}Enter tag to filter (e.g., ActivityManager) ${WHITE}➤${NC} ${RED}"
+            read log_tag
+            echo -ne "${NC}"
+            
+            echo -e "\n${GREEN}${BOLD}📡 Showing logs for tag: ${WHITE}$log_tag${NC}"
+            echo -e "${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}\n"
+            
+            adb -s "$device" logcat -s "$log_tag" -v color
+            ;;
+            
+        5)
+            local timestamp=$(date +"%Y%m%d_%H%M%S")
+            local log_file="sys-dump-info/${model}-logcat-${timestamp}.log"
+            mkdir -p sys-dump-info 2>/dev/null
+            
+            echo -e "\n${BLUE}${BOLD}💾 Saving logs to file...${NC}"
+            loading_animation "Please wait"
+            
+            # Save last 10000 lines to file
+            adb -s "$device" logcat -d > "$log_file" 2>/dev/null
+            
+            if [ -s "$log_file" ]; then
+                local size=$(du -h "$log_file" | cut -f1)
+                local lines=$(wc -l < "$log_file")
+                
+                echo -e "\n${GREEN}${BOLD}✅ Logs saved successfully:${NC}"
+                echo -e "  ${WHITE}File: ${YELLOW}$log_file${NC}"
+                echo -e "  ${WHITE}Size: ${YELLOW}$size${NC}"
+                echo -e "  ${WHITE}Lines: ${YELLOW}$lines${NC}"
+                
+                # Ask if user wants to view
+                echo -ne "\n${YELLOW}${BOLD}❓ View saved logs? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+                read view_logs
+                echo -ne "${NC}"
+                
+                case ${view_logs,,} in
+                    y|yes)
+                        echo -e "\n${BLUE}${BOLD}📄 Opening log file (press 'q' to exit)${NC}\n"
+                        sleep 1
+                        less "$log_file"
+                        ;;
+                esac
+            else
+                echo -e "\n${RED}${BOLD}❌ Failed to save logs${NC}"
+            fi
+            ;;
+            
+        6)
+            echo -e "\n${PURPLE}${BOLD}🐧 Kernel logs (dmesg):${NC}"
+            echo -e "${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}\n"
+            
+            adb -s "$device" shell dmesg | less
+            ;;
+            
+        *)
+            echo -e "\n${RED}${BOLD}❌ Invalid option${NC}"
+            ;;
+    esac
+    
+    sparkle_effect
+}
+
+# Clear screen and show banner
+clear
+echo -e "${CYAN}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██╗      ██████╗  ██████╗  ██████╗██╗  ██╗████████╗     ║
+    ║  ██║     ██╔═══██╗██╔════╝ ██╔════╝██║  ██║╚══██╔══╝     ║
+    ║  ██║     ██║   ██║██║  ███╗██║     ███████║   ██║        ║
+    ║  ██║     ██║   ██║██║   ██║██║     ██╔══██║   ██║        ║
+    ║  ███████╗╚██████╔╝╚██████╔╝╚██████╗██║  ██║   ██║        ║
+    ║  ╚══════╝ ╚═════╝  ╚═════╝  ╚═════╝╚═╝  ╚═╝   ╚═╝        ║
+    ║                                                          ║
+    ║        📊 ${PURPLE}LIVE LOG VIEWER${CYAN} - ${GREEN}Android Logcat Tool${CYAN}               ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp sys-dump-info 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to view logs${NC}                  ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Device log functions
+dev_1_log() {
+    show_logcat "$dev_1" "${mod_1:-Unknown}" "1"
+}
+
+dev_2_log() {
+    show_logcat "$dev_2" "${mod_2:-Unknown}" "2"
+}
+
+dev_3_log() {
+    show_logcat "$dev_3" "${mod_3:-Unknown}" "3"
+}
+
+# Show existing log files
+if [ -d "sys-dump-info" ]; then
+    log_count=$(ls -1 sys-dump-info/*-logcat-*.log 2>/dev/null | wc -l)
+    if [ "$log_count" -gt 0 ]; then
+        echo -e "\n${CYAN}${BOLD}📁 Existing log files: ${WHITE}$log_count${NC}"
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+        ls -lh sys-dump-info/*-logcat-*.log 2>/dev/null | tail -n +1 | head -3 | while read line; do
+            echo -e "  ${GREEN}•${NC} ${WHITE}$line${NC}"
+        done
+        echo -e "${BLUE}${BOLD}────────────────────────${NC}\n"
+    fi
+fi
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting log viewer...${NC}"
+        sleep 1
+        dev_1_log
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to view logs:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_log
+                    break
+                    ;;
+                2)
+                    dev_2_log
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to view logs:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_log
+                    break
+                    ;;
+                2)
+                    dev_2_log
+                    break
+                    ;;
+                3)
+                    dev_3_log
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'logs'${NC} to view logs from another device"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'saved'${NC} to view saved log files"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "logs")
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting log viewer...${NC}"
+        sleep 1
+        clear
+        bash modules/opt15
+        ;;
+    "saved")
+        echo -e "\n${BLUE}${BOLD}📁 Saved log files:${NC}"
+        if [ -d "sys-dump-info" ] && [ "$(ls -A sys-dump-info/*-logcat-*.log 2>/dev/null)" ]; then
+            ls -lh sys-dump-info/*-logcat-*.log
+        else
+            echo -e "${YELLOW}No saved logs found${NC}"
+        fi
+        echo -e "\n${YELLOW}${BOLD}Press Enter to continue...${NC}"
+        read
+        clear
+        bash modules/opt15
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

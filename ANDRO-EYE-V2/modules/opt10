@@ -1,0 +1,581 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 10: GET PHONE DETAILS - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to print formatted device info
+print_info() {
+    local MOD="$1"
+    local model="$2"
+    local brand="$3"
+    local chipset="$4"
+    local android="$5"
+    local security_patch="$6"
+    local device="$7"
+    local sim="$8"
+    local encryption_state="$9"
+    local build_date="${10}"
+    local sdk_version="${11}"
+    local wifi_interface="${12}"
+    
+    clear
+    echo -e "${PURPLE}${BOLD}"
+    cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║     ██████╗ ██╗  ██╗ ██████╗ ███╗   ██╗███████╗         ║
+    ║     ██╔══██╗██║  ██║██╔═══██╗████╗  ██║██╔════╝         ║
+    ║     ██████╔╝███████║██║   ██║██╔██╗ ██║█████╗           ║
+    ║     ██╔═══╝ ██╔══██║██║   ██║██║╚██╗██║██╔══╝           ║
+    ║     ██║     ██║  ██║╚██████╔╝██║ ╚████║███████╗         ║
+    ║     ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝╚══════╝         ║
+    ║                                                          ║
+    ║        📱 ${GREEN}DEVICE INFORMATION DASHBOARD${PURPLE} - ${CYAN}${MOD}${PURPLE}         ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+    echo -e "${NC}"
+    sparkle_effect
+    
+    echo -e "\n${YELLOW}${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}${BOLD}║                    DEVICE SPECIFICATIONS                   ║${NC}"
+    echo -e "${YELLOW}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+    
+    # Format each line with proper spacing
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Model" "${model:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Device Code" "${device:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Brand" "${brand:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Build Date" "${build_date:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Android Version" "${android:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "SDK Version" "${sdk_version:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Security Patch" "${security_patch:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Chipset" "${chipset:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "Encryption State" "${encryption_state:-Unknown}"
+    printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "WiFi Interface" "${wifi_interface:-Unknown}"
+    
+    # SIM card info with special handling
+    if [ -n "$sim" ] && [ "$sim" != "null" ] && [ "$sim" != "[]" ]; then
+        printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${WHITE}%-35s${YELLOW}${BOLD}║${NC}\n" "SIM Card" "$sim"
+    else
+        printf "${YELLOW}${BOLD}║${NC} ${GREEN}%-18s${NC} : ${RED}%-35s${YELLOW}${BOLD}║${NC}\n" "SIM Card" "No SIM detected"
+    fi
+    
+    echo -e "${YELLOW}${BOLD}╚══════════════════════════════════════════════════════════╝${NC}\n"
+}
+
+# Function to show all properties
+show_all_properties() {
+    local device=$1
+    local model=$2
+    
+    echo -e "\n${BLUE}${BOLD}📋 Gathering all system properties...${NC}\n"
+    
+    # Create sys-dump-info directory if it doesn't exist
+    mkdir -p sys-dump-info 2>/dev/null
+    
+    local timestamp=$(date +"%H-%M-%S")
+    local prop_file="sys-dump-info/${model}-all-properties-${timestamp}.log"
+    
+    # Show progress while collecting
+    local spin='-\|/'
+    local i=0
+    
+    echo -ne "${YELLOW}${BOLD}⏳ Collecting properties "
+    
+    # Collect all properties
+    adb -s "$device" shell getprop > "$prop_file" 2>/dev/null &
+    local pid=$!
+    
+    while kill -0 $pid 2>/dev/null; do
+        i=$(( (i+1) % 4 ))
+        echo -ne "\r${YELLOW}${BOLD}⏳ Collecting properties ${spin:$i:1} ${NC}"
+        sleep 0.3
+    done
+    
+    wait $pid 2>/dev/null
+    echo -e "\r${GREEN}${BOLD}✅ Properties collected!            ${NC}\n"
+    
+    if [ -s "$prop_file" ]; then
+        local prop_count=$(wc -l < "$prop_file")
+        local file_size=$(du -h "$prop_file" | cut -f1)
+        
+        echo -e "${GREEN}${BOLD}✓ Saved to: ${WHITE}$prop_file${NC}"
+        echo -e "${GREEN}${BOLD}✓ Properties: ${WHITE}$prop_count${NC}"
+        echo -e "${GREEN}${BOLD}✓ Size: ${WHITE}$file_size${NC}\n"
+        
+        # Ask if user wants to view
+        echo -ne "${YELLOW}${BOLD}❓ View all properties? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read view_props
+        echo -ne "${NC}"
+        
+        case ${view_props,,} in
+            y|yes)
+                echo -e "\n${CYAN}${BOLD}📄 Opening properties file (press 'q' to exit)${NC}\n"
+                sleep 1
+                
+                if command -v less &>/dev/null; then
+                    # Highlight important properties
+                    less "$prop_file"
+                else
+                    cat "$prop_file" | more
+                fi
+                ;;
+        esac
+    else
+        echo -e "${RED}${BOLD}❌ Failed to collect properties${NC}"
+    fi
+}
+
+# Function to get device 1 info
+dev_1_info() {
+    echo -e "\n${BLUE}${BOLD}🔍 Gathering information from device 1...${NC}"
+    loading_animation "Please wait"
+    
+    # Collect all properties with error checking
+    model=$(adb -s "$dev_1" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+    brand=$(adb -s "$dev_1" shell getprop ro.product.vendor.brand 2>/dev/null | tr -d '\r')
+    chipset=$(adb -s "$dev_1" shell getprop ro.product.board 2>/dev/null | tr -d '\r')
+    android=$(adb -s "$dev_1" shell getprop ro.build.version.release 2>/dev/null | tr -d '\r')
+    security_patch=$(adb -s "$dev_1" shell getprop ro.build.version.security_patch 2>/dev/null | tr -d '\r')
+    device=$(adb -s "$dev_1" shell getprop ro.product.vendor.device 2>/dev/null | tr -d '\r')
+    sim=$(adb -s "$dev_1" shell getprop gsm.sim.operator.alpha 2>/dev/null | tr -d '\r')
+    encryption_state=$(adb -s "$dev_1" shell getprop ro.crypto.state 2>/dev/null | tr -d '\r')
+    build_date=$(adb -s "$dev_1" shell getprop ro.build.date 2>/dev/null | tr -d '\r')
+    sdk_version=$(adb -s "$dev_1" shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r')
+    wifi_interface=$(adb -s "$dev_1" shell getprop wifi.interface 2>/dev/null | tr -d '\r')
+    
+    # Set defaults for empty values
+    model=${model:-Unknown}
+    brand=${brand:-Unknown}
+    chipset=${chipset:-Unknown}
+    android=${android:-Unknown}
+    security_patch=${security_patch:-Unknown}
+    device=${device:-Unknown}
+    encryption_state=${encryption_state:-Unknown}
+    build_date=${build_date:-Unknown}
+    sdk_version=${sdk_version:-Unknown}
+    wifi_interface=${wifi_interface:-Unknown}
+    
+    # Display formatted info
+    print_info "${mod_1:-Device-1}" "$model" "$brand" "$chipset" "$android" "$security_patch" "$device" "$sim" "$encryption_state" "$build_date" "$sdk_version" "$wifi_interface"
+    
+    # Ask if user wants to see all properties
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ View all system properties? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            y|yes)
+                show_all_properties "$dev_1" "${mod_1:-Unknown}"
+                break
+                ;;
+            n|no)
+                break
+                ;;
+            "")
+                break
+                ;;
+            *)
+                pulse_message "❌ Please answer with Y or N" "${RED}"
+                ;;
+        esac
+    done
+}
+
+# Function to get device 2 info
+dev_2_info() {
+    echo -e "\n${BLUE}${BOLD}🔍 Gathering information from device 2...${NC}"
+    loading_animation "Please wait"
+    
+    # Collect all properties with error checking
+    model=$(adb -s "$dev_2" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+    brand=$(adb -s "$dev_2" shell getprop ro.product.vendor.brand 2>/dev/null | tr -d '\r')
+    chipset=$(adb -s "$dev_2" shell getprop ro.product.board 2>/dev/null | tr -d '\r')
+    android=$(adb -s "$dev_2" shell getprop ro.build.version.release 2>/dev/null | tr -d '\r')
+    security_patch=$(adb -s "$dev_2" shell getprop ro.build.version.security_patch 2>/dev/null | tr -d '\r')
+    device=$(adb -s "$dev_2" shell getprop ro.product.vendor.device 2>/dev/null | tr -d '\r')
+    sim=$(adb -s "$dev_2" shell getprop gsm.sim.operator.alpha 2>/dev/null | tr -d '\r')
+    encryption_state=$(adb -s "$dev_2" shell getprop ro.crypto.state 2>/dev/null | tr -d '\r')
+    build_date=$(adb -s "$dev_2" shell getprop ro.build.date 2>/dev/null | tr -d '\r')
+    sdk_version=$(adb -s "$dev_2" shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r')
+    wifi_interface=$(adb -s "$dev_2" shell getprop wifi.interface 2>/dev/null | tr -d '\r')
+    
+    # Set defaults for empty values
+    model=${model:-Unknown}
+    brand=${brand:-Unknown}
+    chipset=${chipset:-Unknown}
+    android=${android:-Unknown}
+    security_patch=${security_patch:-Unknown}
+    device=${device:-Unknown}
+    encryption_state=${encryption_state:-Unknown}
+    build_date=${build_date:-Unknown}
+    sdk_version=${sdk_version:-Unknown}
+    wifi_interface=${wifi_interface:-Unknown}
+    
+    # Display formatted info
+    print_info "${mod_2:-Device-2}" "$model" "$brand" "$chipset" "$android" "$security_patch" "$device" "$sim" "$encryption_state" "$build_date" "$sdk_version" "$wifi_interface"
+    
+    # Ask if user wants to see all properties
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ View all system properties? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            y|yes)
+                show_all_properties "$dev_2" "${mod_2:-Unknown}"
+                break
+                ;;
+            n|no)
+                break
+                ;;
+            "")
+                break
+                ;;
+            *)
+                pulse_message "❌ Please answer with Y or N" "${RED}"
+                ;;
+        esac
+    done
+}
+
+# Function to get device 3 info
+dev_3_info() {
+    echo -e "\n${BLUE}${BOLD}🔍 Gathering information from device 3...${NC}"
+    loading_animation "Please wait"
+    
+    # Collect all properties with error checking
+    model=$(adb -s "$dev_3" shell getprop ro.product.model 2>/dev/null | tr -d '\r')
+    brand=$(adb -s "$dev_3" shell getprop ro.product.vendor.brand 2>/dev/null | tr -d '\r')
+    chipset=$(adb -s "$dev_3" shell getprop ro.product.board 2>/dev/null | tr -d '\r')
+    android=$(adb -s "$dev_3" shell getprop ro.build.version.release 2>/dev/null | tr -d '\r')
+    security_patch=$(adb -s "$dev_3" shell getprop ro.build.version.security_patch 2>/dev/null | tr -d '\r')
+    device=$(adb -s "$dev_3" shell getprop ro.product.vendor.device 2>/dev/null | tr -d '\r')
+    sim=$(adb -s "$dev_3" shell getprop gsm.sim.operator.alpha 2>/dev/null | tr -d '\r')
+    encryption_state=$(adb -s "$dev_3" shell getprop ro.crypto.state 2>/dev/null | tr -d '\r')
+    build_date=$(adb -s "$dev_3" shell getprop ro.build.date 2>/dev/null | tr -d '\r')
+    sdk_version=$(adb -s "$dev_3" shell getprop ro.build.version.sdk 2>/dev/null | tr -d '\r')
+    wifi_interface=$(adb -s "$dev_3" shell getprop wifi.interface 2>/dev/null | tr -d '\r')
+    
+    # Set defaults for empty values
+    model=${model:-Unknown}
+    brand=${brand:-Unknown}
+    chipset=${chipset:-Unknown}
+    android=${android:-Unknown}
+    security_patch=${security_patch:-Unknown}
+    device=${device:-Unknown}
+    encryption_state=${encryption_state:-Unknown}
+    build_date=${build_date:-Unknown}
+    sdk_version=${sdk_version:-Unknown}
+    wifi_interface=${wifi_interface:-Unknown}
+    
+    # Display formatted info
+    print_info "${mod_3:-Device-3}" "$model" "$brand" "$chipset" "$android" "$security_patch" "$device" "$sim" "$encryption_state" "$build_date" "$sdk_version" "$wifi_interface"
+    
+    # Ask if user wants to see all properties
+    while true; do
+        echo -ne "\n${YELLOW}${BOLD}❓ View all system properties? ${WHITE}(y/N) ${YELLOW}➤ ${RED}"
+        read yn
+        echo -ne "${NC}"
+        
+        case ${yn,,} in
+            y|yes)
+                show_all_properties "$dev_3" "${mod_3:-Unknown}"
+                break
+                ;;
+            n|no)
+                break
+                ;;
+            "")
+                break
+                ;;
+            *)
+                pulse_message "❌ Please answer with Y or N" "${RED}"
+                ;;
+        esac
+    done
+}
+
+# Clear screen and show main banner
+clear
+echo -e "${CYAN}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██████╗ ███████╗████████╗     ██████╗ ██╗███╗   ██╗███████╗║
+    ║  ██╔══██╗██╔════╝╚══██╔══╝    ██╔═══██╗██║████╗  ██║██╔════╝║
+    ║  ██████╔╝█████╗     ██║       ██║   ██║██║██╔██╗ ██║█████╗  ║
+    ║  ██╔═══╝ ██╔══╝     ██║       ██║   ██║██║██║╚██╗██║██╔══╝  ║
+    ║  ██║     ███████╗   ██║       ╚██████╔╝██║██║ ╚████║███████╗║
+    ║  ╚═╝     ╚══════╝   ╚═╝        ╚═════╝ ╚═╝╚═╝  ╚═══╝╚══════╝║
+    ║                                                          ║
+    ║        📱 ${PURPLE}DEVICE INFORMATION${CYAN} - ${GREEN}Phone Details Viewer${CYAN}           ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp sys-dump-info 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to get details${NC}                 ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Fetching device information...${NC}"
+        sleep 1
+        dev_1_info
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to get details:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_info
+                    break
+                    ;;
+                2)
+                    dev_2_info
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to get details:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_info
+                    break
+                    ;;
+                2)
+                    dev_2_info
+                    break
+                    ;;
+                3)
+                    dev_3_info
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'info'${NC} to check another device"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "info")
+        echo -e "\n${PURPLE}${BOLD}🔄 Restarting device selection...${NC}"
+        sleep 1
+        clear
+        bash modules/opt10
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac

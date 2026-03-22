@@ -1,0 +1,503 @@
+#!/bin/bash
+# Written in Bash
+# "ONLY FOR EDUCATIONAL PURPOSE"
+# OPTION 27: CHECK IF PHONE IS ROOTED - ANDRO-EYE
+
+# Color codes
+RED='\033[0;91m'
+GREEN='\033[0;92m'
+YELLOW='\033[0;93m'
+BLUE='\033[0;94m'
+PURPLE='\033[0;95m'
+CYAN='\033[0;96m'
+WHITE='\033[0;97m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+UNDERLINE='\033[4m'
+BLINK='\033[5m'
+
+# Animation functions
+loading_animation() {
+    local message=$1
+    local chars="⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
+    
+    echo -ne "${CYAN}${BOLD}$message ${NC}"
+    for i in {1..15}; do
+        for char in $(echo $chars | grep -o .); do
+            echo -ne "${YELLOW}${BOLD}$char${NC}"
+            sleep 0.05
+            echo -ne "\b"
+        done
+    done
+    echo -e "${GREEN}${BOLD} Done! ${NC}"
+}
+
+progress_bar() {
+    local duration=$1
+    local message=$2
+    local width=40
+    
+    echo -ne "${BLUE}${BOLD}$message ${NC}"
+    for ((i=0; i<=width; i++)); do
+        local percent=$((i * 100 / width))
+        echo -ne "\r${BLUE}${BOLD}$message ${NC}["
+        for ((j=0; j<i; j++)); do echo -ne "${GREEN}▓${NC}"; done
+        for ((j=i; j<width; j++)); do echo -ne "${WHITE}░${NC}"; done
+        echo -ne "] ${percent}%"
+        sleep $(echo "scale=2; $duration/width" | bc 2>/dev/null || echo "0.05")
+    done
+    echo -e "\n"
+}
+
+sparkle_effect() {
+    echo -ne "${YELLOW}"
+    for i in {1..15}; do
+        echo -ne "✦"
+        sleep 0.03
+    done
+    echo -e "${NC}"
+}
+
+pulse_message() {
+    local message=$1
+    local color=$2
+    
+    for i in {1..3}; do
+        echo -ne "${color}${BOLD}$message${NC}"
+        sleep 0.2
+        echo -ne "\r"
+        for j in $(seq 1 ${#message}); do
+            echo -n " "
+        done
+        echo -ne "\r"
+        sleep 0.2
+    done
+    echo -e "${color}${BOLD}$message${NC}"
+}
+
+# Function to display device in a box
+display_device_box() {
+    local number=$1
+    local device=$2
+    local model=$3
+    local status=$4
+    
+    echo -e "${YELLOW}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}  ${GREEN}${BOLD}DEVICE #${number}${NC}                                        ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${CYAN}ID:${NC} ${WHITE}${device:0:15}...${NC}                     ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${PURPLE}Model:${NC} ${WHITE}$model${NC}                                 ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}│${NC}      ${BLUE}Status:${NC} $status                           ${YELLOW}│${NC}"
+    echo -e "${YELLOW}${BOLD}└──────────────────────────────────────────────┘${NC}"
+}
+
+# Function to perform comprehensive root check
+comprehensive_root_check() {
+    local device=$1
+    local model=$2
+    
+    echo -e "\n${YELLOW}${BOLD}════════════════════════════════════════════════${NC}"
+    echo -e "${PURPLE}${BOLD}🔍 Performing Root Check for:${NC}"
+    display_device_box "-" "$device" "$model" "${YELLOW}● Checking${NC}"
+    
+    # Check device connection
+    echo -e "\n${BLUE}${BOLD}🔍 Verifying device connection...${NC}"
+    if ! adb -s "$device" get-state &>/dev/null; then
+        pulse_message "❌ Device not responding!" "${RED}"
+        return 1
+    fi
+    echo -e "${GREEN}${BOLD}✓ Device connected${NC}"
+    
+    echo -e "\n${CYAN}${BOLD}🔎 Running multiple root detection methods...${NC}\n"
+    
+    local root_score=0
+    local max_score=7
+    local results=()
+    
+    # Method 1: Check for su binary
+    echo -ne "${YELLOW}${BOLD}[1/7] Checking for su binary... ${NC}"
+    if adb -s "$device" shell which su &>/dev/null; then
+        echo -e "${GREEN}✅ Found${NC}"
+        root_score=$((root_score + 1))
+        results+=("${GREEN}✓${NC} su binary found")
+    else
+        echo -e "${RED}❌ Not found${NC}"
+        results+=("${RED}✗${NC} su binary not found")
+    fi
+    
+    # Method 2: Check multiple su locations
+    echo -ne "${YELLOW}${BOLD}[2/7] Checking common su locations... ${NC}"
+    local su_locations=(
+        "/system/bin/su"
+        "/system/xbin/su"
+        "/sbin/su"
+        "/system/sd/xbin/su"
+        "/data/local/xbin/su"
+        "/data/local/bin/su"
+        "/system/bin/failsafe/su"
+    )
+    
+    local su_found=0
+    for loc in "${su_locations[@]}"; do
+        if adb -s "$device" shell test -f "$loc" &>/dev/null; then
+            su_found=1
+            break
+        fi
+    done
+    
+    if [ $su_found -eq 1 ]; then
+        echo -e "${GREEN}✅ Found${NC}"
+        root_score=$((root_score + 1))
+        results+=("${GREEN}✓${NC} su binary in standard location")
+    else
+        echo -e "${RED}❌ Not found${NC}"
+        results+=("${RED}✗${NC} no su in standard locations")
+    fi
+    
+    # Method 3: Check for root permissions
+    echo -ne "${YELLOW}${BOLD}[3/7] Testing root permissions... ${NC}"
+    local root_test=$(adb -s "$device" shell "su -c 'id' 2>/dev/null" | grep "uid=0")
+    if [ -n "$root_test" ]; then
+        echo -e "${GREEN}✅ Root access confirmed${NC}"
+        root_score=$((root_score + 1))
+        results+=("${GREEN}✓${NC} Root shell access confirmed")
+    else
+        echo -e "${RED}❌ No root access${NC}"
+        results+=("${RED}✗${NC} Cannot get root shell")
+    fi
+    
+    # Method 4: Check for Magisk
+    echo -ne "${YELLOW}${BOLD}[4/7] Checking for Magisk... ${NC}"
+    if adb -s "$device" shell ls /data/adb/magisk/ 2>/dev/null | grep -q "magisk"; then
+        echo -e "${GREEN}✅ Magisk detected${NC}"
+        root_score=$((root_score + 1))
+        results+=("${GREEN}✓${NC} Magisk detected")
+    else
+        echo -e "${YELLOW}⚠️  Not found${NC}"
+        results+=("${YELLOW}?${NC} Magisk not detected")
+    fi
+    
+    # Method 5: Check for SuperSU
+    echo -ne "${YELLOW}${BOLD}[5/7] Checking for SuperSU... ${NC}"
+    if adb -s "$device" shell pm list packages 2>/dev/null | grep -q "eu.chainfire.supersu"; then
+        echo -e "${GREEN}✅ SuperSU detected${NC}"
+        root_score=$((root_score + 1))
+        results+=("${GREEN}✓${NC} SuperSU detected")
+    else
+        echo -e "${YELLOW}⚠️  Not found${NC}"
+        results+=("${YELLOW}?${NC} SuperSU not detected")
+    fi
+    
+    # Method 6: Check build tags
+    echo -ne "${YELLOW}${BOLD}[6/7] Checking build tags... ${NC}"
+    local build_tags=$(adb -s "$device" shell getprop ro.build.tags 2>/dev/null)
+    if [[ "$build_tags" == *"test-keys"* ]]; then
+        echo -e "${YELLOW}⚠️  Test keys found${NC}"
+        root_score=$((root_score + 1))
+        results+=("${YELLOW}?${NC} Build has test-keys (may be rooted)")
+    else
+        echo -e "${GREEN}✅ Release keys${NC}"
+        results+=("${GREEN}✓${NC} Build has release-keys")
+    fi
+    
+    # Method 7: Check for root-only files
+    echo -ne "${YELLOW}${BOLD}[7/7] Checking for root-only files... ${NC}"
+    local root_files=(
+        "/system/app/Superuser.apk"
+        "/system/app/SuperSU.apk"
+        "/system/app/magisk.apk"
+        "/data/local/tmp"
+    )
+    
+    local root_files_found=0
+    for file in "${root_files[@]}"; do
+        if adb -s "$device" shell test -e "$file" &>/dev/null; then
+            root_files_found=1
+            break
+        fi
+    done
+    
+    if [ $root_files_found -eq 1 ]; then
+        echo -e "${GREEN}✅ Root files detected${NC}"
+        root_score=$((root_score + 1))
+        results+=("${GREEN}✓${NC} Root manager apps found")
+    else
+        echo -e "${YELLOW}⚠️  None found${NC}"
+        results+=("${YELLOW}?${NC} No root manager apps found")
+    fi
+    
+    echo -e "\n${BLUE}${BOLD}════════════════════════════════════════════════${NC}"
+    
+    # Calculate root probability
+    local percentage=$((root_score * 100 / max_score))
+    
+    # Display results in a box
+    echo -e "\n${YELLOW}${BOLD}╔══════════════════════════════════════════════════════════╗${NC}"
+    
+    if [ $percentage -ge 70 ]; then
+        echo -e "${YELLOW}${BOLD}║${NC}  ${GREEN}${BOLD}✅ DEVICE IS ROOTED (Confidence: ${percentage}%)${NC}                 ${YELLOW}${BOLD}║${NC}"
+    elif [ $percentage -ge 40 ]; then
+        echo -e "${YELLOW}${BOLD}║${NC}  ${YELLOW}${BOLD}⚠️  DEVICE MAY BE ROOTED (Confidence: ${percentage}%)${NC}               ${YELLOW}${BOLD}║${NC}"
+    else
+        echo -e "${YELLOW}${BOLD}║${NC}  ${RED}${BOLD}❌ DEVICE IS NOT ROOTED (Confidence: ${percentage}%)${NC}               ${YELLOW}${BOLD}║${NC}"
+    fi
+    
+    echo -e "${YELLOW}${BOLD}╠══════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${YELLOW}${BOLD}║${NC}  ${WHITE}Device: ${GREEN}$model${NC}                                                ${YELLOW}${BOLD}║${NC}"
+    echo -e "${YELLOW}${BOLD}║${NC}  ${WHITE}Root Score: ${YELLOW}$root_score/$max_score${NC}                                           ${YELLOW}${BOLD}║${NC}"
+    echo -e "${YELLOW}${BOLD}╚══════════════════════════════════════════════════════════╝${NC}"
+    
+    # Show detailed results
+    echo -e "\n${CYAN}${BOLD}📋 Detailed Check Results:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    for result in "${results[@]}"; do
+        echo -e "  $result"
+    done
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    
+    # Additional security info
+    echo -e "\n${PURPLE}${BOLD}🔒 Security Information:${NC}"
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    
+    # Check SELinux status
+    local selinux=$(adb -s "$device" shell getenforce 2>/dev/null)
+    echo -e "  ${GREEN}•${NC} ${WHITE}SELinux: ${YELLOW}$selinux${NC}"
+    
+    # Check verification status
+    local verified=$(adb -s "$device" shell getprop ro.boot.verifiedbootstate 2>/dev/null)
+    [ -n "$verified" ] && echo -e "  ${GREEN}•${NC} ${WHITE}Boot state: ${YELLOW}$verified${NC}"
+    
+    # Check encryption status
+    local encrypted=$(adb -s "$device" shell getprop ro.crypto.state 2>/dev/null)
+    echo -e "  ${GREEN}•${NC} ${WHITE}Encryption: ${YELLOW}$encrypted${NC}"
+    
+    # Check for custom ROM
+    local fingerprint=$(adb -s "$device" shell getprop ro.build.fingerprint 2>/dev/null | cut -d'/' -f1)
+    if [[ "$fingerprint" != *"google"* ]] && [[ "$fingerprint" != *"samsung"* ]] && [[ "$fingerprint" != *"xiaomi"* ]]; then
+        echo -e "  ${GREEN}•${NC} ${WHITE}Custom ROM: ${YELLOW}Possible${NC}"
+    fi
+    
+    echo -e "${BLUE}${BOLD}────────────────────────${NC}"
+    
+    # Recommendations
+    if [ $percentage -ge 70 ]; then
+        echo -e "\n${GREEN}${BOLD}💡 This device has root access. Be careful with privileged operations.${NC}"
+    elif [ $percentage -ge 40 ]; then
+        echo -e "\n${YELLOW}${BOLD}💡 This device shows some signs of root but not confirmed.${NC}"
+    else
+        echo -e "\n${BLUE}${BOLD}💡 This device appears to be non-rooted (stock).${NC}"
+    fi
+    
+    sparkle_effect
+}
+
+# Device-specific root check functions
+dev_1_root_check() {
+    comprehensive_root_check "$dev_1" "${mod_1:-Unknown}"
+}
+
+dev_2_root_check() {
+    comprehensive_root_check "$dev_2" "${mod_2:-Unknown}"
+}
+
+dev_3_root_check() {
+    comprehensive_root_check "$dev_3" "${mod_3:-Unknown}"
+}
+
+# Clear screen and show banner
+clear
+echo -e "${PURPLE}${BOLD}"
+cat << "EOF"
+    ╔══════════════════════════════════════════════════════════╗
+    ║  ██████╗  ██████╗  ██████╗ ████████╗     ██████╗██╗  ██╗ ██████╗██╗  ██╗║
+    ║  ██╔══██╗██╔═══██╗██╔═══██╗╚══██╔══╝    ██╔════╝██║  ██║██╔════╝██║ ██╔╝║
+    ║  ██████╔╝██║   ██║██║   ██║   ██║       ██║     ███████║██║     █████╔╝ ║
+    ║  ██╔══██╗██║   ██║██║   ██║   ██║       ██║     ██╔══██║██║     ██╔═██╗ ║
+    ║  ██║  ██║╚██████╔╝╚██████╔╝   ██║       ╚██████╗██║  ██║╚██████╗██║  ██╗║
+    ║  ╚═╝  ╚═╝ ╚═════╝  ╚═════╝    ╚═╝        ╚═════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝║
+    ║                                                          ║
+    ║        🔍 ${GREEN}ROOT CHECKER${PURPLE} - ${CYAN}Device Root Status Analyzer${PURPLE}         ║
+    ║                                                          ║
+    ╚══════════════════════════════════════════════════════════╝
+EOF
+echo -e "${NC}"
+sparkle_effect
+
+# Create necessary directories
+mkdir -p .temp 2>/dev/null
+
+## DEVICE ID EXTRACT ##
+echo -e "\n${BLUE}${BOLD}🔎 Scanning for connected devices...${NC}"
+loading_animation "Detecting devices"
+
+# Check if ADB is working
+if ! command -v adb &> /dev/null; then
+    pulse_message "❌ ADB not found! Please install ADB first." "${RED}"
+    sleep 2
+    bash modules/funtion.sh
+    exit 1
+fi
+
+adb devices | sed -n '2,$p' | awk '{ print $1 }' > .temp/dev_list_temp 2>/dev/null
+
+# Check if any devices found
+if [ ! -s ".temp/dev_list_temp" ]; then
+    echo -e "\n${RED}${BOLD}┌──────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}${BOLD}│${NC}  ${RED}${BLINK}⚠️${NC}  ${WHITE}NO DEVICES CONNECTED${NC}                       ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}│${NC}      ${CYAN}Please connect a device to check root status${NC}           ${RED}${BOLD}│${NC}"
+    echo -e "${RED}${BOLD}└──────────────────────────────────────────────┘${NC}"
+    
+    echo -e "\n${YELLOW}${BOLD}Press Enter to return to main menu...${NC}"
+    read
+    clear
+    bash modules/funtion.sh
+    exit 0
+fi
+
+# Read devices into array properly
+mapfile -t dev < .temp/dev_list_temp 2>/dev/null
+
+# Assign device variables with null checking
+dev_1="${dev[0]:-}"
+dev_2="${dev[1]:-}"
+dev_3="${dev[2]:-}"
+
+## DEVICE MODEL EXTRACT ##
+adb devices -l | grep "model:" > .temp/dev_list_model_temp 2>/dev/null
+
+# Extract models properly
+mod_1=""
+mod_2=""
+mod_3=""
+
+if [ -s ".temp/dev_list_model_temp" ]; then
+    mapfile -t model_lines < .temp/dev_list_model_temp
+    
+    for i in "${!model_lines[@]}"; do
+        model=$(echo "${model_lines[$i]}" | grep -o 'model:[^ ]*' | cut -d':' -f2)
+        
+        case $i in
+            0) mod_1="$model" ;;
+            1) mod_2="$model" ;;
+            2) mod_3="$model" ;;
+        esac
+    done
+fi
+
+# Proper device count logic
+total_dev=0
+[ -n "$dev_1" ] && total_dev=1
+[ -n "$dev_2" ] && total_dev=2
+[ -n "$dev_3" ] && total_dev=3
+
+# Main device selection logic
+echo -e "\n${GREEN}${BOLD}✅ Scan Complete! Found ${WHITE}$total_dev${GREEN} device(s)${NC}\n"
+
+echo -e "${CYAN}${BOLD}ℹ️  Root check will perform multiple tests to determine root status${NC}\n"
+
+case $total_dev in
+    1)
+        echo -e "${YELLOW}${BOLD}📱 Single device detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Starting comprehensive root check...${NC}"
+        sleep 1
+        dev_1_root_check
+        ;;
+        
+    2)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to check root status:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-2) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_root_check
+                    break
+                    ;;
+                2)
+                    dev_2_root_check
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1 or 2" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+        
+    3)
+        echo -e "${YELLOW}${BOLD}📱 Multiple devices detected:${NC}\n"
+        display_device_box "1" "$dev_1" "${mod_1:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "2" "$dev_2" "${mod_2:-Unknown}" "${GREEN}● Ready${NC}"
+        echo
+        display_device_box "3" "$dev_3" "${mod_3:-Unknown}" "${GREEN}● Ready${NC}"
+        
+        echo -e "\n${CYAN}${BOLD}Select device to check root status:${NC}"
+        while true; do
+            echo -ne "\n${YELLOW}${BOLD}Enter device number (1-3) ${WHITE}➤${NC} ${RED}"
+            read options
+            echo -ne "${NC}"
+            
+            case $options in
+                1)
+                    dev_1_root_check
+                    break
+                    ;;
+                2)
+                    dev_2_root_check
+                    break
+                    ;;
+                3)
+                    dev_3_root_check
+                    break
+                    ;;
+                *)
+                    pulse_message "❌ Invalid option! Choose 1-3" "${RED}"
+                    ;;
+            esac
+        done
+        ;;
+esac
+
+# Clean up temp files
+rm -f .temp/dev_list_temp .temp/dev_list_model_temp 2>/dev/null
+
+# Return options
+echo -e "\n${YELLOW}${BOLD}══════════════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}${BOLD}⏎ Options:${NC}"
+echo -e "  ${GREEN}•${NC} Press ${WHITE}ENTER${NC} to return to main menu"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'check'${NC} to check another device"
+echo -e "  ${GREEN}•${NC} Type ${WHITE}'exit'${NC} to quit\n"
+
+echo -ne "${YELLOW}${BOLD}❓ Your choice ${WHITE}➤${NC} ${RED}"
+read user_choice
+echo -ne "${NC}"
+
+case ${user_choice,,} in
+    "check")
+        echo -e "\n${PURPLE}${BOLD}🔄 Checking another device...${NC}"
+        sleep 1
+        clear
+        bash modules/opt27
+        ;;
+    "exit"|"quit")
+        echo -e "\n${BLUE}${BOLD}👋 Exiting to shell...${NC}"
+        sparkle_effect
+        exit 0
+        ;;
+    *)
+        echo -e "\n${GREEN}${BOLD}↩️  Returning to main menu...${NC}"
+        loading_animation "Loading"
+        sleep 0.5
+        clear
+        bash modules/funtion.sh
+        ;;
+esac
